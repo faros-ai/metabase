@@ -35,7 +35,7 @@
                      "HOME"       (env/env :user-home)
                      "WEBPACK_BUNDLE"   "production"
                      "MB_EDITION" mb-edition
-                     "MB_RELEASE" (version-info/most-recent-tag)
+                     "MB_RELEASE" (or (env/env :mb-release) (version-info/most-recent-tag))
                      "SENTRY_ENABLED" (env/env :sentry-enabled)
                      "SENTRY_DSN" (env/env :sentry-dsn)
                      "SENTRY_ENVIRONMENT"(env/env :sentry-environment)
