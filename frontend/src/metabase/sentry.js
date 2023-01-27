@@ -8,7 +8,7 @@ if (process.env.SENTRY_ENABLED.toLowerCase() === "true") {
     dsn: process.env.SENTRY_DSN,
     environment: process.env.SENTRY_ENVIRONMENT,
     debug: process.env.SENTRY_DEBUG_LOG_LEVEL_ENABLED.toLowerCase() === "true",
-    // This enables automatic instrumentation (highly recommended)
+    // This enables automatic instrumentation
     integrations: [new BrowserTracing()],
     tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE) || 1.0,
   });
