@@ -2,6 +2,8 @@ name: Faros Metabase build
 
 on:
   push:
+    branches:
+      - faros
     paths-ignore:
     - 'docs/**'
     - 'frontend/test/**'
@@ -23,4 +25,4 @@ jobs:
               workflow_id: '${{ secrets.FAROS_METABASE_BUILD_WORKFLOW }}',
               ref: '${{ secrets.FAROS_METABASE_BUILD_BRANCH }}'
             })
-            console.log(result)
+ 
