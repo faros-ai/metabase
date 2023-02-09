@@ -7,8 +7,8 @@ import {
 const DEFAULT_OPTIONS = {
   top_nav: true,
   side_nav: "default",
-  search: false,
-  new_button: false,
+  search: true,
+  new_button: true,
   breadcrumbs: true,
   header: true,
   additional_info: true,
