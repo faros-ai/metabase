@@ -160,7 +160,7 @@ export const SINGLE_OR_MULTI_SELECTABLE_TYPES: Record<
   string | string[]
 > = {
   string: ["=", "!="],
-  category: "any",
+  category: ["=", "!="],
   id: "any",
   location: ["=", "!="],
 };

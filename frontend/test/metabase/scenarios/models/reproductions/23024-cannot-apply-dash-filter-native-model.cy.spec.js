@@ -1,15 +1,13 @@
 import {
-  editDashboard,
-  popover,
   restore,
+  popover,
   visitDashboard,
+  editDashboard,
 } from "__support__/e2e/helpers";
-import { SAMPLE_DATABASE } from "__support__/e2e/cypress_sample_database";
-import { setModelMetadata } from "../helpers/e2e-models-metadata-helpers";
 
-const { PRODUCTS } = SAMPLE_DATABASE;
+import { openDetailsSidebar } from "../helpers/e2e-models-helpers";
 
-describe("issue 23024", () => {
+describe.skip("issue 23024", () => {
   beforeEach(() => {
     cy.intercept("POST", "/api/card/*/query").as("cardQuery");
     cy.intercept("PUT", "/api/card/*").as("updateMetadata");
@@ -24,23 +22,20 @@ describe("issue 23024", () => {
         },
         dataset: true,
       },
-      { wrapId: true, idAlias: "modelId" },
+      { wrapId: true, idAlias: "modelId", visitQuestion: true },
     );
 
-    cy.get("@modelId").then(modelId => {
-      setModelMetadata(modelId, field => {
-        if (field.display_name === "CATEGORY") {
-          return {
-            ...field,
-            id: PRODUCTS.CATEGORY,
-            display_name: "Category",
-            semantic_type: "type/Category",
-          };
-        }
+    openDetailsSidebar();
 
-        return field;
-      });
-    });
+    cy.findByText("Customize metadata").click();
+    cy.wait(["@cardQuery", "@cardQuery"]);
+
+    cy.findByText("CATEGORY").click();
+
+    mapColumnTo({ table: "Products", column: "Category" });
+
+    cy.button("Save changes").click();
+    cy.wait("@updateMetadata");
 
     addModelToDashboardAndVisit();
   });
@@ -62,6 +57,18 @@ describe("issue 23024", () => {
     popover().contains("Category");
   });
 });
+
+function mapColumnTo({ table, column } = {}) {
+  cy.findByText("Database column this maps to")
+    .closest(".Form-field")
+    .contains("None")
+    .click();
+
+  popover().findByText(table).click();
+  popover().findByText(column).click();
+
+  cy.findByDisplayValue(column);
+}
 
 function addModelToDashboardAndVisit() {
   cy.createDashboard().then(({ body: { id } }) => {

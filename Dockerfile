@@ -2,18 +2,13 @@
 # STAGE 1: builder
 ###################
 
-FROM node:16-slim as builder
+FROM metabase/ci:java-11-clj-1.11.0.1100.04-2022-build as builder
 
 ARG MB_EDITION=oss
 
-WORKDIR /home/node
+WORKDIR /home/circleci
 
-RUN apt-get update && apt-get upgrade -y && apt-get install openjdk-11-jdk curl git -y \
-    && curl -O https://download.clojure.org/install/linux-install-1.11.0.1100.sh \
-    && chmod +x linux-install-1.11.0.1100.sh \
-    && ./linux-install-1.11.0.1100.sh
-
-COPY . .
+COPY --chown=circleci . .
 RUN INTERACTIVE=false CI=true MB_EDITION=$MB_EDITION bin/build
 
 # ###################
@@ -40,7 +35,7 @@ RUN apk add -U bash ttf-dejavu fontconfig curl java-cacerts && \
     mkdir -p /plugins && chmod a+rwx /plugins
 
 # add Metabase script and uberjar
-COPY --from=builder /home/node/target/uberjar/metabase.jar /app/
+COPY --from=builder /home/circleci/target/uberjar/metabase.jar /app/
 COPY bin/docker/run_metabase.sh /app/
 
 # expose our default runtime port

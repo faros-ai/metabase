@@ -118,11 +118,7 @@
    :numIdleConnections {:label       "c3p0_num_idle_connections"
                         :description (deferred-trs "C3P0 Number of idle connections")}
    :numBusyConnections {:label       "c3p0_num_busy_connections"
-                        :description (deferred-trs "C3P0 Number of busy connections")}
-
-   :numThreadsAwaitingCheckoutDefaultUser
-                       {:label       "c3p0_num_threads_awaiting_checkout_default_user"
-                        :description (deferred-trs "C3P0 Number of threads awaiting checkout")}})
+                        :description (deferred-trs "C3P0 Number of busy connections")}})
 
 (defn- stats->prometheus
   "Create an ArrayList of GaugeMetricFamily objects containing measurements from the c3p0 stats. Stats are grouped by

@@ -18,14 +18,9 @@ For users to unsubscribe themselves from a pulse subscription.
 
 ## `GET /api/pulse/`
 
-Fetch all dashboard subscriptions. By default, returns only subscriptions for which the current user has write
-  permissions. For admins, this is all subscriptions; for non-admins, it is only subscriptions that they created.
-
-  If `dashboard_id` is specified, restricts results to subscriptions for that dashboard.
-
-  If `can_read` is `true`, it specifically returns all subscriptions for which the current user
-  created *or* is a known recipient of. Note that this is a superset of the default items returned for non-admins,
-  and a subset of the default items returned for admins. This is used to power the /account/notifications page.
+Fetch all Pulses. If `dashboard_id` is specified, restricts results to dashboard subscriptions
+  associated with that dashboard. If `user_id` is specified, restricts results to pulses or subscriptions
+  created by the user, or for which the user is a known recipient.
 
 ### PARAMS:
 
@@ -33,7 +28,7 @@ Fetch all dashboard subscriptions. By default, returns only subscriptions for wh
 
 *  **`dashboard_id`** value may be nil, or if non-nil, value must be an integer greater than zero.
 
-*  **`can_read`** value may be nil, or if non-nil, value must be a valid boolean string ('true' or 'false').
+*  **`user_id`** value may be nil, or if non-nil, value must be an integer greater than zero.
 
 ## `GET /api/pulse/:id`
 

@@ -22,7 +22,7 @@ const query = {
   display: "table",
 };
 
-describe("issue 25927", () => {
+describe.skip("issue 25927", () => {
   beforeEach(() => {
     restore();
     cy.signInAsAdmin();

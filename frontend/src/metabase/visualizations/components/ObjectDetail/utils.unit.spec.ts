@@ -2,7 +2,6 @@ import {
   metadata,
   SAMPLE_DATABASE,
   ORDERS,
-  PRODUCTS,
 } from "__support__/sample_database_fixture";
 
 import { Card } from "metabase-types/types/Card";
@@ -26,21 +25,12 @@ const card = {
 } as Card;
 
 describe("ObjectDetail utils", () => {
-  const productIdCol = {
-    name: "product_id",
-    display_name: "Product ID",
-    base_type: "int",
-    effective_type: "int",
-    semantic_type: "type/PK",
-    table_id: PRODUCTS.id,
-  };
   const idCol = {
     name: "id",
     display_name: "ID",
     base_type: "int",
     effective_type: "int",
     semantic_type: "type/PK",
-    table_id: ORDERS.id,
   };
   const qtyCol = {
     name: "qty",
@@ -48,7 +38,6 @@ describe("ObjectDetail utils", () => {
     base_type: "int",
     effective_type: "int",
     semantic_type: "type/int",
-    table_id: ORDERS.id,
   };
   const nameCol = {
     name: "id",
@@ -56,7 +45,6 @@ describe("ObjectDetail utils", () => {
     base_type: "string",
     effective_type: "string",
     semantic_type: "type/Name",
-    table_id: ORDERS.id,
   };
 
   describe("getObjectName", () => {
@@ -115,11 +103,10 @@ describe("ObjectDetail utils", () => {
   });
 
   describe("getDisplayId", () => {
-    it("should get a display id when there is a single primary key column in the table", () => {
+    it("should get a display id when there is a single primary key column", () => {
       const id = getDisplayId({
-        cols: [productIdCol, idCol, qtyCol, nameCol],
-        zoomedRow: [11, 22, 33, "Giant Sprocket"],
-        tableId: ORDERS.id,
+        cols: [idCol, qtyCol, nameCol],
+        zoomedRow: [22, 33, "Giant Sprocket"],
       });
 
       expect(id).toBe(22);
@@ -145,17 +132,31 @@ describe("ObjectDetail utils", () => {
   });
 
   describe("getIdValue", () => {
+    it("should return the zoomed Row id if present", () => {
+      const id = getIdValue({
+        data: {
+          cols: [idCol, qtyCol, nameCol],
+          rows: [
+            [22, 33, "Giant Sprocket"],
+            [44, 55, "Tiny Sprocket"],
+          ],
+        },
+        zoomedRowID: 1,
+      });
+
+      expect(id).toBe(1);
+    });
+
     // this code should no longer be reachable now that we always reach object detail by zooming
     it("should return the primary key of the first row if now zoomed row id exists", () => {
       const id = getIdValue({
         data: {
-          cols: [productIdCol, idCol, qtyCol, nameCol],
+          cols: [idCol, qtyCol, nameCol],
           rows: [
-            [11, 22, 33, "Giant Sprocket"],
-            [33, 44, 55, "Tiny Sprocket"],
+            [22, 33, "Giant Sprocket"],
+            [44, 55, "Tiny Sprocket"],
           ],
         },
-        tableId: ORDERS.id,
       });
 
       expect(id).toBe(22);

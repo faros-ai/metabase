@@ -3,7 +3,7 @@ import {
   popover,
   setupSMTP,
   visitDashboard,
-  sendEmailAndAssert,
+  clickSend,
 } from "__support__/e2e/helpers";
 
 describe.skip("issue 18009", { tags: "@external" }, () => {
@@ -31,12 +31,14 @@ describe.skip("issue 18009", { tags: "@external" }, () => {
     // Click anywhere to close the popover that covers the "Send email now" button
     cy.findByText("To:").click();
 
-    sendEmailAndAssert(email => {
-      expect(email.html).not.to.include(
+    clickSend();
+
+    cy.request("GET", "http://localhost:80/email").then(({ body }) => {
+      expect(body[0].html).not.to.include(
         "An error occurred while displaying this card.",
       );
 
-      expect(email.html).to.include("37.65");
+      expect(body[0].html).to.include("37.65");
     });
   });
 });

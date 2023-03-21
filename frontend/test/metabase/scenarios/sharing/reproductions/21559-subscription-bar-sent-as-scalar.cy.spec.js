@@ -4,7 +4,6 @@ import {
   editDashboard,
   saveDashboard,
   setupSMTP,
-  sendEmailAndAssert,
 } from "__support__/e2e/helpers";
 
 import { USERS } from "__support__/e2e/cypress_data";
@@ -34,6 +33,7 @@ const q2Details = {
 
 describe("issue 21559", { tags: "@external" }, () => {
   beforeEach(() => {
+    cy.intercept("POST", "/api/pulse/test").as("emailSent");
     restore();
     cy.signInAsAdmin();
 
@@ -70,9 +70,11 @@ describe("issue 21559", { tags: "@external" }, () => {
       .type(`${admin.first_name} ${admin.last_name}{enter}`)
       .blur(); // blur is needed to close the popover
 
-    sendEmailAndAssert(email => {
-      expect(email.html).to.include("img"); // Bar chart is sent as img (inline attachment)
-      expect(email.html).not.to.include("80.52"); // Scalar displays its value in HTML
+    cy.findByText("Send email now").click();
+    cy.wait("@emailSent");
+    cy.request("GET", "http://localhost:80/email").then(({ body }) => {
+      expect(body[0].html).to.include("img"); // Bar chart is sent as img (inline attachment)
+      expect(body[0].html).not.to.include("80.52"); // Scalar displays its value in HTML
     });
   });
 });

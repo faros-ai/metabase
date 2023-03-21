@@ -22,7 +22,7 @@ For an introduction to expressions, check out [Writing expressions in the notebo
   - [Share](#share)
   - [StandardDeviation](#standarddeviation)
   - [Sum](#sum)
-  - [SumIf](./expressions/sumif.md)
+  - [SumIf](#sumif)
   - [Variance](#variance)
 - [Functions](#functions)
   - [abs](#abs)
@@ -186,7 +186,7 @@ Syntax: `Sum(column)`
 
 Example: `Sum([Subtotal])` would add up all the values in the `Subtotal` column.
 
-### [SumIf](./expressions/sumif.md)
+### SumIf
 
 Sums up the specified column only for rows where the condition is true.
 
