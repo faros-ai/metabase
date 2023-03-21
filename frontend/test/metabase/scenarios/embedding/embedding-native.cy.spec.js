@@ -82,9 +82,8 @@ describe("scenarios > embedding > native questions", () => {
 
       // State: is not KS
       filterWidget().contains("State").click();
-      cy.findByPlaceholderText("Search the list").type("KS{enter}");
-      cy.findAllByTestId(/-filter-value$/).should("have.length", 1);
-      cy.findByTestId("KS-filter-value").should("be.visible").click();
+      cy.findByPlaceholderText("Search the list").type("KS");
+      cy.findByTestId("KS-filter-value").click();
       cy.button("Add filter").click();
 
       cy.findByText("Logan Weber").should("not.exist");

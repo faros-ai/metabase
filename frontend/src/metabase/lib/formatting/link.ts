@@ -61,6 +61,7 @@ function renderTemplateForClick(
       if (valueAndColumn) {
         return formatFunction(valueAndColumn);
       }
+      console.warn("Missing value for " + name);
       return "";
     },
   );

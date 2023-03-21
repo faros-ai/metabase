@@ -34,7 +34,7 @@ import ObjectMode from "metabase/modes/components/modes/ObjectMode";
 import { LOAD_COMPLETE_FAVICON } from "metabase/hoc/Favicon";
 import { getCardUiParameters } from "metabase-lib/parameters/utils/cards";
 import { normalizeParameterValue } from "metabase-lib/parameters/utils/parameter-values";
-import { getIsPKFromTablePredicate } from "metabase-lib/types/utils/isa";
+import { isPK } from "metabase-lib/types/utils/isa";
 import Mode from "metabase-lib/Mode";
 import NativeQuery from "metabase-lib/queries/NativeQuery";
 import Question from "metabase-lib/Question";
@@ -133,25 +133,18 @@ export const getFirstQueryResult = createSelector([getQueryResults], results =>
   Array.isArray(results) ? results[0] : null,
 );
 
-export const getTableId = createSelector([getCard], card =>
-  getIn(card, ["dataset_query", "query", "source-table"]),
-);
-
 export const getPKColumnIndex = createSelector(
-  [getFirstQueryResult, getTableId],
-  (result, tableId) => {
+  [getFirstQueryResult],
+  result => {
     if (!result) {
       return;
     }
     const { cols } = result.data;
-
-    const hasMultiplePks =
-      cols.filter(getIsPKFromTablePredicate(tableId)).length > 1;
-
+    const hasMultiplePks = cols.filter(isPK).length > 1;
     if (hasMultiplePks) {
       return -1;
     }
-    return cols.findIndex(getIsPKFromTablePredicate(tableId));
+    return cols.findIndex(isPK);
   },
 );
 
@@ -184,6 +177,10 @@ export const getQueryStartTime = state => state.qb.queryStartTime;
 export const getDatabaseId = createSelector(
   [getCard],
   card => card && card.dataset_query && card.dataset_query.database,
+);
+
+export const getTableId = createSelector([getCard], card =>
+  getIn(card, ["dataset_query", "query", "source-table"]),
 );
 
 export const getTableForeignKeyReferences = state =>

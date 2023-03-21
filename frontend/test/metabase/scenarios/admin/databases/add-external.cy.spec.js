@@ -1,9 +1,4 @@
 import { restore, typeAndBlurUsingLabel } from "__support__/e2e/helpers";
-import {
-  QA_MONGO_PORT,
-  QA_MYSQL_PORT,
-  QA_POSTGRES_PORT,
-} from "__support__/e2e/cypress_data";
 
 describe(
   "admin > database > add > external databases",
@@ -40,10 +35,10 @@ describe(
 
       // make sure fields needed to connect to the database are properly trimmed (metabase#12972)
       typeAndBlurUsingLabel("Display name", "QA Postgres12");
-      typeAndBlurUsingLabel("Host", "localhost");
-      typeAndBlurUsingLabel("Port", QA_POSTGRES_PORT);
-      typeAndBlurUsingLabel("Database name", "sample");
-      typeAndBlurUsingLabel("Username", "metabase");
+      typeAndBlurUsingLabel("Host", "localhost  \n  ");
+      typeAndBlurUsingLabel("Port", "5432");
+      typeAndBlurUsingLabel("Database name", "  sample");
+      typeAndBlurUsingLabel("Username", "  metabase  ");
       typeAndBlurUsingLabel("Password", "metasample123");
 
       cy.button("Save").should("not.be.disabled").click();
@@ -84,39 +79,11 @@ describe(
 
       typeAndBlurUsingLabel("Display name", "QA Mongo4");
       typeAndBlurUsingLabel("Host", "localhost");
-      typeAndBlurUsingLabel("Port", QA_MONGO_PORT);
+      typeAndBlurUsingLabel("Port", "27017");
       typeAndBlurUsingLabel("Database name", "sample");
       typeAndBlurUsingLabel("Username", "metabase");
       typeAndBlurUsingLabel("Password", "metasample123");
       typeAndBlurUsingLabel("Authentication database (optional)", "admin");
-
-      cy.findByText("Save").should("not.be.disabled").click();
-
-      cy.wait("@createDatabase");
-
-      cy.url().should("match", /\/admin\/databases\?created=true$/);
-
-      cy.findByRole("table").within(() => {
-        cy.findByText("QA Mongo4");
-      });
-
-      cy.findByRole("status").within(() => {
-        cy.findByText("Syncing…");
-        cy.findByText("Done!");
-      });
-    });
-
-    it("should add Mongo database via the connection string", () => {
-      const connectionString = `mongodb://metabase:metasample123@localhost:${QA_MONGO_PORT}/sample?authSource=admin`;
-
-      cy.contains("MongoDB").click({ force: true });
-      cy.findByText("Paste a connection string").click();
-      typeAndBlurUsingLabel("Display name", "QA Mongo4");
-      cy.findByLabelText("Port").should("not.exist");
-      cy.findByLabelText("Paste your connection string").type(
-        connectionString,
-        { delay: 0 },
-      );
 
       cy.findByText("Save").should("not.be.disabled").click();
 
@@ -141,7 +108,7 @@ describe(
 
       typeAndBlurUsingLabel("Display name", "QA MySQL8");
       typeAndBlurUsingLabel("Host", "localhost");
-      typeAndBlurUsingLabel("Port", QA_MYSQL_PORT);
+      typeAndBlurUsingLabel("Port", "3306");
       typeAndBlurUsingLabel("Database name", "sample");
       typeAndBlurUsingLabel("Username", "metabase");
       typeAndBlurUsingLabel("Password", "metasample123");

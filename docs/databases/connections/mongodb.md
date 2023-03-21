@@ -4,9 +4,15 @@ redirect_from:
   - /docs/latest/administration-guide/databases/mongodb
 ---
 
-# MongoDB
+# Working with MongoDB in Metabase
 
-Metabase supports MongoDB version 4.2 or higher.
+This article covers:
+
+- [Connecting to MongoDB](#connecting-to-mongodb).
+- [Configuring SSL via the command line](#configuring-ssl-via-the-command-line).
+- [Connecting to a MongoDB Atlas cluster](#connecting-to-a-mongodb-atlas-cluster).
+- [General connectivity concerns](#general-connectivity-concerns).
+- [I added fields to my database but don't see them in Metabase](#i-added-fields-to-my-database-but-dont-see-them-in-metabase).
 
 ## How Metabase syncs data in MongoDB
 

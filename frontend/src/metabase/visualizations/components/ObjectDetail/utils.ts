@@ -4,11 +4,7 @@ import _ from "underscore";
 import { singularize } from "metabase/lib/formatting";
 
 import { DatasetData, Column } from "metabase-types/types/Dataset";
-import { TableId } from "metabase-types/api";
-import {
-  getIsPKFromTablePredicate,
-  isEntityName,
-} from "metabase-lib/types/utils/isa";
+import { isPK, isEntityName } from "metabase-lib/types/utils/isa";
 import Question from "metabase-lib/Question";
 import Table from "metabase-lib/metadata/Table";
 
@@ -47,23 +43,24 @@ export const getObjectName = ({
 export interface GetDisplayIdArgs {
   cols: Column[];
   zoomedRow: unknown[] | undefined;
-  tableId?: TableId;
 }
 
 export const getDisplayId = ({
   cols,
   zoomedRow,
-  tableId,
 }: GetDisplayIdArgs): ObjectId | null => {
   const hasSinglePk =
-    cols.filter(getIsPKFromTablePredicate(tableId)).length === 1;
+    cols.reduce(
+      (pks: number, col: Column) => (isPK(col) ? pks + 1 : pks),
+      0,
+    ) === 1;
 
   if (!zoomedRow) {
     return null;
   }
 
   if (hasSinglePk) {
-    const pkColumn = cols.findIndex(getIsPKFromTablePredicate(tableId));
+    const pkColumn = cols.findIndex(isPK);
     return zoomedRow[pkColumn] as ObjectId;
   }
 
@@ -79,19 +76,22 @@ export const getDisplayId = ({
 
 export interface GetIdValueArgs {
   data: DatasetData;
-  tableId?: TableId;
+  zoomedRowID?: ObjectId;
 }
 
 export const getIdValue = ({
   data,
-  tableId,
+  zoomedRowID,
 }: GetIdValueArgs): ObjectId | null => {
   if (!data) {
     return null;
   }
+  if (zoomedRowID) {
+    return zoomedRowID;
+  }
 
   const { cols, rows } = data;
-  const columnIndex = cols.findIndex(getIsPKFromTablePredicate(tableId));
+  const columnIndex = _.findIndex(cols, col => isPK(col));
   return rows[0][columnIndex] as number;
 };
 

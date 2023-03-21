@@ -67,21 +67,31 @@ describe("scenarios > collection items metadata", () => {
       changeDashboard();
 
       cy.visit("/collection/root");
-      getTableRowFor("Orders!").findByText(fullName);
-      getTableRowFor("Dash").findByText(fullName);
+      getTableRowFor("Orders").findByText(fullName);
+      getTableRowFor("Orders in a dashboard").findByText(fullName);
     });
   });
 });
 
 function changeDashboard() {
   cy.intercept("PUT", "/api/dashboard/**").as("updateDashboard");
-  cy.findByDisplayValue("Orders in a dashboard").clear().type("Dash").blur();
+  cy.get("main header").within(() => {
+    cy.icon("ellipsis").click();
+  });
+  cy.findByText("Edit dashboard details").click();
+  cy.findByLabelText("Description")
+    .click()
+    .type("This dashboard is just beautiful");
+  cy.button("Update").click();
   cy.wait("@updateDashboard");
 }
 
 function changeQuestion() {
   cy.intercept("PUT", "/api/card/**").as("updateQuestion");
-  cy.findByDisplayValue("Orders").type("!").blur();
+  cy.findByTestId("saved-question-header-title").click();
+  cy.findByTestId("edit-details-button").click();
+  cy.findByLabelText("Description").click().type("Very insightful");
+  cy.button("Save").click();
   cy.wait("@updateQuestion");
 }
 
