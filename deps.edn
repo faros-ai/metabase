@@ -32,7 +32,7 @@
   com.draines/postal                        {:mvn/version "2.0.5"}              ; SMTP library
   com.google.guava/guava                    {:mvn/version "31.0.1-jre"}         ; dep for BigQuery, Spark, and GA. Require here rather than letting different dep versions stomp on each other — see comments on #9697
   com.fasterxml.jackson.core/jackson-databind
-                                            {:mvn/version "2.13.4.2"}           ; JSON processor used by snowplow-java-tracker (pinned version due to CVE-2020-36518)
+                                            {:mvn/version "2.14.2"}             ; JSON processor used by snowplow-java-tracker (pinned version due to CVE-2020-36518)
   com.fasterxml.woodstox/woodstox-core      {:mvn/version "6.4.0"}              ; trans dep of commons-codec (pinned version due to CVE-2022-40151)
   com.h2database/h2                         {:mvn/version "1.4.197"}            ; embedded SQL database
   com.snowplowanalytics/snowplow-java-tracker
@@ -42,6 +42,7 @@
   com.vladsch.flexmark/flexmark             {:mvn/version "0.64.0"}             ; Markdown parsing
   com.vladsch.flexmark/flexmark-ext-autolink
                                             {:mvn/version "0.64.0"}             ; Flexmark extension for auto-linking bare URLs
+  commons-fileupload/commons-fileupload     {:mvn/version "1.5"}                ; ring/ring-core 1.9.6 uses v1.4, but we want 1.5 due to a CVE. When we upgrade to the forthcoming ring/ring-core 1.10.0 we can remove this.
   commons-codec/commons-codec               {:mvn/version "1.15"}               ; Apache Commons -- useful codec util fns
   commons-io/commons-io                     {:mvn/version "2.11.0"}             ; Apache Commons -- useful IO util fns
   commons-validator/commons-validator       {:mvn/version "1.7"                 ; Apache Commons -- useful validation util fns
