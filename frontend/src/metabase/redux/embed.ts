@@ -10,7 +10,7 @@ export const DEFAULT_EMBED_OPTIONS = {
   search: true,
   new_button: true,
   breadcrumbs: true,
-  logo: true,
+  logo: false,
   header: true,
   additional_info: true,
   action_buttons: true,
