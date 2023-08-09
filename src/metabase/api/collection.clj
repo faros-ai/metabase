@@ -939,11 +939,15 @@
 
 #_{:clj-kondo/ignore [:deprecated-var]}
 (api/defendpoint-schema GET "/graph"
-  "Fetch a graph of all Collection Permissions."
-  [namespace]
-  {namespace (s/maybe su/NonBlankString)}
+  "Fetch a graph of Collection Permissions."
+  [namespace group_id root_collection_id]
+  {namespace          (s/maybe su/NonBlankString)
+   group_id           (s/maybe s/Int)
+   root_collection_id (s/maybe s/Int)}
+
   (api/check-superuser)
-  (graph/graph namespace))
+
+  (graph/graph namespace group_id root_collection_id))
 
 (def CollectionID "an id for a [[Collection]]."
   [pos-int? {:title "Collection ID"}])
