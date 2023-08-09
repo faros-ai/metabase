@@ -16,15 +16,17 @@
 (defmethod sql-jdbc.conn/connection-details->spec :duckdb
   [_ {:keys [database_file, read_only, temp_directory, memory_limit], :as details}]
   (let [conn_details (merge
-   {:classname         "org.duckdb.DuckDBDriver"
-    :subprotocol       "duckdb"
-    :subname           (or database_file "")
-    "duckdb.read_only" (str read_only)}
+    {:classname         "org.duckdb.DuckDBDriver"
+     :subprotocol       "duckdb"
+     :subname           (or database_file "")
+     "duckdb.read_only" (str read_only)
+     "enable_external_access" "false"
+     "lock_configuration" "true"}
     (when (not-empty temp_directory)
       {"temp_directory" temp_directory})
     (when (not-empty memory_limit)
       {"memory_limit" memory_limit}))]
-   conn_details))
+    conn_details))
 
 (def ^:private database-type->base-type
   (sql-jdbc.sync/pattern-based-database-type->base-type
@@ -100,12 +102,15 @@
     :week (recur driver hsql-form (* amount 7) :day)
     (hx/+ (hx/->timestamp hsql-form) (hsql/raw (format "(INTERVAL '%d' %s)" (int amount) (name unit))))))
 
+(defn- date-sub [unit a b] (hx/call :date_sub (hx/literal unit) a b))
+(defn- date-trunc [unit x] (hx/call :date_trunc (hx/literal unit) x))
+
 (defmethod sql.qp/date [:duckdb :default]         [_ _ expr] expr)
-(defmethod sql.qp/date [:duckdb :minute]          [_ _ expr] (hsql/call :date_trunc (hx/literal :minute) expr))
+(defmethod sql.qp/date [:duckdb :minute]          [_ _ expr] (date-trunc :minute expr))
 (defmethod sql.qp/date [:duckdb :minute-of-hour]  [_ _ expr] (hsql/call :minute expr))
-(defmethod sql.qp/date [:duckdb :hour]            [_ _ expr] (hsql/call :date_trunc (hx/literal :hour) expr))
+(defmethod sql.qp/date [:duckdb :hour]            [_ _ expr] (date-trunc :hour expr))
 (defmethod sql.qp/date [:duckdb :hour-of-day]     [_ _ expr] (hsql/call :hour expr))
-(defmethod sql.qp/date [:duckdb :day]             [_ _ expr] (hsql/call :date_trunc (hx/literal :day) expr))
+(defmethod sql.qp/date [:duckdb :day]             [_ _ expr] (date-trunc :day expr))
 (defmethod sql.qp/date [:duckdb :day-of-month]    [_ _ expr] (hsql/call :day expr))
 (defmethod sql.qp/date [:duckdb :day-of-year]     [_ _ expr] (hsql/call :dayofyear expr))
 
@@ -115,13 +120,22 @@
 
 (defmethod sql.qp/date [:duckdb :week]
   [_ _ expr]
-  (sql.qp/adjust-start-of-week :duckdb (partial hsql/call :date_trunc (hx/literal :week)) expr))
+  (sql.qp/adjust-start-of-week :duckdb (partial date-trunc :week) expr))
 
-(defmethod sql.qp/date [:duckdb :month]           [_ _ expr] (hsql/call :date_trunc (hx/literal :month) expr))
+(defmethod sql.qp/date [:duckdb :month]           [_ _ expr] (date-trunc :month expr))
 (defmethod sql.qp/date [:duckdb :month-of-year]   [_ _ expr] (hsql/call :month expr))
-(defmethod sql.qp/date [:duckdb :quarter]         [_ _ expr] (hsql/call :date_trunc (hx/literal :quarter) expr))
+(defmethod sql.qp/date [:duckdb :quarter]         [_ _ expr] (date-trunc :quarter expr))
 (defmethod sql.qp/date [:duckdb :quarter-of-year] [_ _ expr] (hsql/call :quarter expr))
-(defmethod sql.qp/date [:duckdb :year]            [_ _ expr] (hsql/call :date_trunc (hx/literal :year) expr))
+(defmethod sql.qp/date [:duckdb :year]            [_ _ expr] (date-trunc :year expr))
+
+(defmethod sql.qp/datetime-diff [:duckdb :year]    [_driver _unit x y] (date-sub :year x y))
+(defmethod sql.qp/datetime-diff [:duckdb :quarter] [_driver _unit x y] (date-sub :quarter x y))
+(defmethod sql.qp/datetime-diff [:duckdb :month]   [_driver _unit x y] (date-sub :month x y))
+(defmethod sql.qp/datetime-diff [:duckdb :week]    [_driver _unit x y] (date-sub :week x y))
+(defmethod sql.qp/datetime-diff [:duckdb :day]     [_driver _unit x y] (date-sub :day x y))
+(defmethod sql.qp/datetime-diff [:duckdb :hour]    [_driver _unit x y] (date-sub :hour x y))
+(defmethod sql.qp/datetime-diff [:duckdb :minute]  [_driver _unit x y] (date-sub :minute x y))
+(defmethod sql.qp/datetime-diff [:duckdb :second]  [_driver _unit x y] (date-sub :second x y))
 
 (defmethod sql.qp/unix-timestamp->honeysql [:duckdb :seconds]
   [_ _ expr]
@@ -131,8 +145,7 @@
   [driver [_ arg pattern]]
   (hsql/call :regexp_extract (sql.qp/->honeysql driver arg) pattern))
 
-;; emty result set for queries without result (like insert...)
-
+;; Handle empty result set
 (defn empty-rs [_] ;
   (reify
     ResultSet
@@ -146,8 +159,7 @@
     (next [_] false)
     (close [_])))
 
-;; override native execute-statement! to make queries that does't returns ResultSet
-
+;; Override native execute-statement! to handle queries without result set
 (defmethod sql-jdbc.execute/execute-statement! :sql-jdbc
   [_driver ^Statement stmt ^String sql]
   (if (.execute stmt sql)
@@ -182,8 +194,7 @@
            :base-type         (sql-jdbc.sync/database-type->base-type :duckdb (keyword data_type))
            :database-position idx}))))})
 
-;; The 0.4.0 DuckDB JDBC .getImportedKeys method throws 'not implemented' yet.
-;; There is no support of FK yet.
+;; The DuckDB JDBC driver does not support foreign keys yet
 (defmethod driver/describe-table-fks :duckdb
   [_ _ _]
   (set #{}))
