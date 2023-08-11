@@ -70,16 +70,46 @@
                                                  [:not [:like :location (h2x/literal (format "/%d/%%" collection-id))]]))}]
     (set (map :id (mdb.query/query honeysql-form)))))
 
+(s/defn ^:private descendant-collection-ids :- #{su/IntGreaterThanZero}
+  "Return a set of IDs of Collections that are descendants of a given Collection."
+  [collection-namespace :- (s/maybe su/KeywordOrString)
+   root-collection-id :- su/IntGreaterThanZero]
+  (let [honeysql-form {:select [[:id :id]]
+                       :from   [:collection]
+                       :where  [:and
+                                [:= :namespace (u/qualified-name collection-namespace)]
+                                [:= :personal_owner_id nil]
+                                [:like :location (h2x/literal (format "%%/%d/%%" root-collection-id))]]}]
+    (set (map :id (mdb.query/query honeysql-form)))))
+
+(s/defn ^:private descendant-collection-ids :- #{su/IntGreaterThanZero}
+  "Return a set of IDs of Collections that are descendants of a given Collection, including the root Collection itself."
+  [collection-namespace :- (s/maybe su/KeywordOrString)
+   root-collection-id :- su/IntGreaterThanZero]
+  (let [honeysql-form {:select [[:id :id]]
+                       :from   [:collection]
+                       :where  [:and
+                                [:= :namespace (u/qualified-name collection-namespace)]
+                                [:= :personal_owner_id nil]
+                                [:like :location (h2x/literal (format "%%/%d/%%" root-collection-id))]]}
+        descendant-ids (set (map :id (mdb.query/query honeysql-form)))]
+    (conj descendant-ids root-collection-id)))
+
 (defn- collection-permission-graph
-  "Return the permission graph for the collections with id in `collection-ids` and the root collection."
-  ([collection-ids] (collection-permission-graph collection-ids nil))
-  ([collection-ids collection-namespace]
-   (let [group-id->perms (group-id->permissions-set)]
+  "Return the permission graph for the collections with id in `collection-ids` and the root collection.
+   If `group-id` is provided, only return the permission graph for that group. Otherwise, return for all groups."
+  ([collection-ids] (collection-permission-graph collection-ids nil nil))
+  ([collection-ids collection-namespace] (collection-permission-graph collection-ids collection-namespace nil))
+  ([collection-ids collection-namespace group-id]
+   (let [group-id->perms (group-id->permissions-set)
+         groups-to-process (if group-id
+                             [group-id]
+                             (db/select-ids PermissionsGroup))]
      {:revision (c-perm-revision/latest-id)
-      :groups   (into {} (for [group-id (db/select-ids PermissionsGroup)]
-                           {group-id (group-permissions-graph collection-namespace
-                                                              (group-id->perms group-id)
-                                                              collection-ids)}))})))
+      :groups   (into {} (for [gid groups-to-process]
+                           {gid (group-permissions-graph collection-namespace
+                                                         (group-id->perms gid)
+                                                         collection-ids)}))})))
 
 (s/defn graph :- PermissionsGraph
   "Fetch a graph representing the current permissions status for every group and all permissioned collections. This
@@ -95,14 +125,21 @@
   schema) *cannot* have more restrictive permissions than its parent (e.g. Database). Child Collections *can* have
   more restrictive permissions than their parent."
   ([]
-   (graph nil))
+   (graph nil nil nil))
 
   ([collection-namespace :- (s/maybe su/KeywordOrString)]
+   (graph collection-namespace nil nil))
+
+  ([collection-namespace :- (s/maybe su/KeywordOrString) group-id :- (s/maybe s/Int)]
+   (graph collection-namespace group-id nil))
+
+  ([collection-namespace :- (s/maybe su/KeywordOrString) group-id :- (s/maybe s/Int) root-collection-id :- (s/maybe s/Int)]
    (db/transaction
      (-> collection-namespace
-         non-personal-collection-ids
-         (collection-permission-graph collection-namespace)))))
-
+         (#(if root-collection-id
+           (descendant-collection-ids % root-collection-id)
+           (non-personal-collection-ids %)))
+         (collection-permission-graph collection-namespace group-id)))))
 
 ;;; -------------------------------------------------- Update Graph --------------------------------------------------
 
