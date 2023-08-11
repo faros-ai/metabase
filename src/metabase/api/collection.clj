@@ -21,6 +21,9 @@
    [metabase.mbql.normalize :as mbql.normalize]
    [metabase.models.card :refer [Card]]
    [metabase.models.collection :as collection :refer [Collection]]
+   [metabase.models.collection-permission-graph-revision
+    :as c-perm-revision
+    :refer [CollectionPermissionGraphRevision]]
    [metabase.models.collection.graph :as graph]
    [metabase.models.collection.root :as collection.root]
    [metabase.models.dashboard :refer [Dashboard]]
@@ -936,6 +939,15 @@
       (hydrate :parent_id)))
 
 ;;; ------------------------------------------------ GRAPH ENDPOINTS -------------------------------------------------
+
+#_{:clj-kondo/ignore [:deprecated-var]}
+(api/defendpoint-schema GET "/graph/revision"
+  "Fetch the current Collection Permissions revision."
+  []
+
+  (api/check-superuser)
+
+  {:revision (c-perm-revision/latest-id)})
 
 #_{:clj-kondo/ignore [:deprecated-var]}
 (api/defendpoint-schema GET "/graph"
