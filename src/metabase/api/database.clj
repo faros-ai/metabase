@@ -524,7 +524,8 @@
                              (and (empty? search-id) (not-empty search-name))
                              [:like [:lower :report_card.name] (str "%" search-name "%")])]
                 :left-join [[:collection :collection] [:= :collection.id :report_card.collection_id]]
-                :order-by [[:report_card.id :desc]]
+                :order-by [[:dataset :desc]         ; prioritize models
+                           [:report_card.id :desc]] ; then most recently created
                 :limit    50})))
 
 (defn- autocomplete-fields [db-id search-string limit]
@@ -877,13 +878,16 @@
    settings           (s/maybe su/Map)}
   ;; TODO - ensure that custom schedules and let-user-control-scheduling go in lockstep
   (let [existing-database (api/write-check (db/select-one Database :id id))
-        details           (driver.u/db-details-client->server engine details)
-        details           (upsert-sensitive-fields existing-database details)
-        conn-error        (when (some? details)
-                            (assert (some? engine))
-                            (test-database-connection engine details))
-        full-sync?        (when-not (nil? is_full_sync)
-                            (boolean is_full_sync))]
+        details           (some->> details
+                                   (driver.u/db-details-client->server (or engine (:engine existing-database)))
+                                   (upsert-sensitive-fields existing-database))
+        ;; verify that we can connect to the database if `:details` OR `:engine` have changed.
+        details-changed?  (some-> details (not= (:details existing-database)))
+        engine-changed?   (some-> engine (not= (:engine existing-database)))
+        conn-error        (when (or details-changed? engine-changed?)
+                            (test-database-connection (or engine (:engine existing-database))
+                                                      (or details (:details existing-database))))
+        full-sync?        (some-> is_full_sync boolean)]
     (if conn-error
       ;; failed to connect, return error
       {:status 400

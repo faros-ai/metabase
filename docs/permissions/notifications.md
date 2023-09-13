@@ -42,7 +42,7 @@ Admins can add recipients without changing the permissions of the alert or subsc
 
 {% include plans-blockquote.html feature="Approved domains for notifications" %}
 
-Admins can limit email recipients to people within an org by going to **Admin setting** > **General settings** > [Approved domains for notifications](../configuring-metabase/settings.md#approved-domains-for-notifications).
+Admins can limit email recipients to people within an org by going to **Admin setting** > **General settings** > [Approved domains for notifications](../configuring-metabase/settings.md#approved-domains-for-notifications). 
 
 ## Further reading
 

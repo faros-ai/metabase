@@ -145,6 +145,7 @@
       ;; actually if we are going to `throw-exceptions` we'll rethrow the original but attempt to humanize the message
       ;; first
       (catch Throwable e
+        (log/errorf e "Failed to connect to Database")
         (throw (if-let [humanized-message (some->> (.getMessage e)
                                                    (driver/humanize-connection-error-message driver))]
                  (let [error-data (cond
@@ -427,7 +428,7 @@
                                           ;; version of the -value property (the :type "textFile" one)
                                           (let [textfile-prop (val-kw secrets-server->client)]
                                             (:treat-before-posting textfile-prop)))))
-                         value      (let [^String v (val-kw acc)]
+                         value      (when-let [^String v (val-kw acc)]
                                       (case (get-treat)
                                         "base64" (decode-uploaded v)
                                         v))]
