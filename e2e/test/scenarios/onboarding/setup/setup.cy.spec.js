@@ -114,20 +114,9 @@ describe("scenarios > setup", () => {
       cy.findByText("SQLite").click();
       cy.findByText("Need help connecting?");
 
-      // add h2 database
+      // remove database
       cy.findByLabelText("Remove database").click();
-      cy.findByText("Show more options").click();
-      cy.findByText("H2").click();
-      cy.findByLabelText("Display name").type("Metabase H2");
-      cy.findByText("Connect database").closest("button").should("be.disabled");
-
-      const dbFilename = "e2e/runner/empty.db";
-      const dbPath = Cypress.config("fileServerFolder") + "/" + dbFilename;
-      cy.findByLabelText("Connection String").type(`file:${dbPath}`);
-      cy.findByText("Connect database")
-        .closest("button")
-        .should("not.be.disabled")
-        .click();
+      cy.findByText("I'll add my data later").click();
 
       // test database setup help card is hidden on the next step
       cy.findByText("Need help connecting?").should("not.be.visible");
@@ -185,16 +174,7 @@ describe("scenarios > setup", () => {
 
     // Database
     cy.findByText("Add your data");
-    cy.findByText("I'll add my data later");
-
-    cy.findByText("Show more options").click();
-    cy.findByText("H2").click();
-    cy.findByLabelText("Display name").type("Metabase H2");
-
-    const dbFilename = "e2e/runner/empty.db";
-    const dbPath = Cypress.config("fileServerFolder") + "/" + dbFilename;
-    cy.findByLabelText("Connection String").type(`file:${dbPath}`);
-    cy.button("Connect database").click();
+    cy.findByText("I'll add my data later").click();
 
     // Turns off anonymous data collection
     cy.findByLabelText(
@@ -244,17 +224,18 @@ describeWithSnowplow("scenarios > setup", () => {
   });
 
   it("should send snowplow events", () => {
-    // 1 - pageview
+    // 1 - new_instance_created
+    // 2 - pageview
     cy.visit(`/setup`);
 
-    // 2 - setup/step_seen
+    // 3 - setup/step_seen
     cy.findByText("Welcome to Metabase");
     cy.button("Let's get started").click();
 
-    // 3 - setup/step_seen
+    // 4 - setup/step_seen
     cy.findByText("What's your preferred language?");
 
-    expectGoodSnowplowEvents(3);
+    expectGoodSnowplowEvents(4);
   });
 
   it("should ignore snowplow failures and work as normal", () => {
@@ -264,6 +245,6 @@ describeWithSnowplow("scenarios > setup", () => {
     cy.findByText("Welcome to Metabase");
     cy.button("Let's get started").click();
 
-    expectGoodSnowplowEvents(0);
+    expectGoodSnowplowEvents(1);
   });
 });

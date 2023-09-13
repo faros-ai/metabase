@@ -20,7 +20,7 @@ If you're ready to jump in, try our [Data sandbox examples](./data-sandbox-examp
 
 ## How sandboxes work
 
-Data sandboxes work by displaying a filtered version of a table, instead of the original table, to a specific group.
+Data sandboxes work by displaying a filtered version of a table, instead of the original table, to a specific group. 
 
 You can think of a data sandbox as a bundle of permissions that includes:
 
@@ -161,7 +161,7 @@ You cannot add a column to a custom sandbox.
 5. Click on the dropdown under **Data access** for that group.
 6. Select "Sandboxed".
 7. Select "Use a saved question to create a custom view for this table".
-8. Select your saved question. The question should be written in SQL. If the question contains parameters, those parameters must be required (they cannot be optional).
+8. Select your saved question. The question should be written in SQL. If the question contains parameters, those parameters must be required (they cannot be optional). 
 9. Optional: [restrict rows based on people's user attributes](#restricting-rows-in-an-custom-sandbox-with-user-attributes).
 
 > If you have saved SQL questions that use sandboxed data, make sure to move all of those questions to admin-only collections. For more info, see [Permissions conflicts: saved SQL questions](#saved-sql-questions).

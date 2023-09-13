@@ -111,7 +111,7 @@ From this filter editing view, you can wire up individual dashboard cards to the
 
 ### Remove a filter
 
-1. In dashboard edit mode, click your filter's **gear** icon.
+1. In dashboard edit mode, click your filter's **gear** icon. 
 2. From the sidebar, click **Remove**.
 
 If you accidentally remove a filter, just click **Cancel** in the top-right to exit dashboard edit mode without saving your changes.
@@ -122,21 +122,21 @@ In dashboard edit mode, click on the grabber handle (six dots) on the left side 
 
 ### Set a default filter value
 
-1. In dashboard edit mode, click your filter's **gear** icon.
+1. In dashboard edit mode, click your filter's **gear** icon. 
 2. From the sidebar, choose a value from the **Default value** input field.
 
 For example, you might want to set a default filter value like "Active", so that when people load your dashboard, they only see data for "Active" records (not "Inactive", "Cancelled", etc).
 
 ### Make a multi-select filter
 
-1. In dashboard edit mode, click your filter's **gear** icon.
+1. In dashboard edit mode, click your filter's **gear** icon. 
 2. From the sidebar, find **Users can pick** and select "Multiple values".
 
 A multi-select filter with the widget type [Dropdown list](#dropdown-list) or [Search box](#search-box) will display a list of values with checkboxes.
 
 ### Change a filter's selectable values
 
-1. In dashboard edit mode, click your filter's **gear** icon.
+1. In dashboard edit mode, click your filter's **gear** icon. 
 2. From the sidebar, find **How should users filter on this column?**.
 3. Select "Dropdown list".\*
 4. Click **Edit** (to the right of "Dropdown list") to specify where the values should come from:
@@ -151,6 +151,8 @@ A multi-select filter with the widget type [Dropdown list](#dropdown-list) or [S
 ## Using filters
 
 Once you’ve added a filter to your dashboard, just click on the filter widget to select a value and activate the filter. To stop filtering, just click the blue X.
+
+Your active filter will only apply to your view of the dashboard. If someone else is viewing the same dashboard link at the same time, they won't see your filter.
 
 ![Using a filter](./images/use-filter.png)
 
