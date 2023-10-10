@@ -95,7 +95,7 @@
   net.sf.cssbox/cssbox                      {:mvn/version "5.0.0"               ; HTML / CSS rendering
                                              :exclusions  [org.slf4j/slf4j-api]}
   net.thisptr/jackson-jq                    {:mvn/version "1.0.0-preview.20220705"} ; Java implementation of the JQ json query language
-  org.apache.commons/commons-compress       {:mvn/version "1.22"}               ; compression utils
+  org.apache.commons/commons-compress       {:mvn/version "1.24"}               ; compression utils
   org.apache.commons/commons-lang3          {:mvn/version "3.12.0"}             ; helper methods for working with java.lang stuff
   org.apache.logging.log4j/log4j-1.2-api    {:mvn/version "2.19.0"}             ; apache logging framework
   org.apache.logging.log4j/log4j-api        {:mvn/version "2.19.0"}             ; add compatibility with log4j 1.2
@@ -133,7 +133,7 @@
   org.clojure/tools.namespace               {:mvn/version "1.3.0"}
   org.clojure/tools.reader                  {:mvn/version "1.3.6"}
   org.clojure/tools.trace                   {:mvn/version "0.7.11"}             ; function tracing
-  org.eclipse.jetty/jetty-server            {:mvn/version "11.0.14"}            ; web server
+  org.eclipse.jetty/jetty-server            {:mvn/version "11.0.16"}            ; web server
   org.flatland/ordered                      {:mvn/version "1.15.10"}            ; ordered maps & sets
   org.graalvm.js/js                         {:mvn/version "22.3.0"}             ; JavaScript engine
   org.liquibase/liquibase-core              {:mvn/version "4.11.0"              ; migration management (Java lib)
