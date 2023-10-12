@@ -67,7 +67,8 @@
   hiccup/hiccup                             {:mvn/version "1.0.5"}              ; HTML templating
   honeysql/honeysql                         {:mvn/version "1.0.461"             ; Transform Clojure data structures to SQL
                                              :exclusions  [org.clojure/clojurescript]}
-  info.sunng/ring-jetty9-adapter            {:mvn/version "0.18.5"}             ; Drop-in replacement for official Ring Jetty adapter. Supports Jetty 11 webserver.
+  info.sunng/ring-jetty9-adapter            {:mvn/version "0.18.5"              ; Drop-in replacement for official Ring Jetty adapter. Supports Jetty 11 webserver.
+                                             :exclusions  [org.eclipse.jetty/jetty-xml]}
   instaparse/instaparse                     {:mvn/version "1.4.12"}             ; Make your own parser
   io.forward/yaml                           {:mvn/version "1.0.11"              ; Clojure wrapper for YAML library SnakeYAML. Don't upgrade yet, new version doesn't support Java 8 (see https://github.com/owainlewis/yaml/issues/37)
                                              :exclusions  [org.clojure/clojure
@@ -134,6 +135,7 @@
   org.clojure/tools.reader                  {:mvn/version "1.3.6"}
   org.clojure/tools.trace                   {:mvn/version "0.7.11"}             ; function tracing
   org.eclipse.jetty/jetty-server            {:mvn/version "11.0.16"}            ; web server
+  org.eclipse.jetty/jetty-xml               {:mvn/version "11.0.16"}            ; -- to override vulnerability GHSA-58qw-p7qm-5rvh
   org.flatland/ordered                      {:mvn/version "1.15.10"}            ; ordered maps & sets
   org.graalvm.js/js                         {:mvn/version "22.3.0"}             ; JavaScript engine
   org.liquibase/liquibase-core              {:mvn/version "4.11.0"              ; migration management (Java lib)
