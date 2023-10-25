@@ -20,8 +20,6 @@ Tooltip.propTypes = {
   isPadded: PropTypes.bool,
   offset: PropTypes.oneOfType([PropTypes.array, PropTypes.func]),
   maxWidth: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-  trigger: PropTypes.string,
-  interactive: PropTypes.bool,
 };
 
 export interface TooltipProps
@@ -38,8 +36,6 @@ export interface TooltipProps
   isOpen?: boolean;
   maxWidth?: string | number | undefined;
   isPadded?: boolean;
-  trigger?: string;
-  interactive?: boolean;
 }
 
 // Tippy relies on child nodes forwarding refs, so when `children` is neither
@@ -75,7 +71,6 @@ function Tooltip({
   isPadded = true,
   preventOverflow = false,
   maxWidth = 300,
-  trigger = "mouseenter focus",
 }: TooltipProps) {
   const visible = isOpen != null ? isOpen : undefined;
   const animationDuration = isReducedMotionPreferred() ? 0 : undefined;
@@ -120,7 +115,6 @@ function Tooltip({
         offset={offset}
         zIndex={DEFAULT_Z_INDEX}
         popperOptions={popperOptions}
-        trigger={trigger}
         {...targetProps}
       />
     );

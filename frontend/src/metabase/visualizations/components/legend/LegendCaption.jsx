@@ -183,7 +183,7 @@ const LegendCaption = ({
           </PopoverWithTrigger>
         )}
         {description && (
-          <Tooltip tooltip={description} maxWidth="22em" trigger="click">
+          <Tooltip tooltip={description} maxWidth="22em">
             <LegendDescriptionIcon className="hover-child hover-child--smooth" />
           </Tooltip>
         )}
