@@ -199,6 +199,12 @@ export const ICON_PATHS: Record<string, any> = {
       fillRule: "evenodd",
     },
   },
+  faros: {
+    svg: '<g transform="translate(0.000000,256.000000) scale(0.100000,-0.100000)" fill="#e9560d" stroke="none"><path d="M1190 2554 c-19 -2 -78 -11 -130 -20 -606 -103 -1053 -635 -1053 -1254 0 -407 190 -784 521 -1028 77 -57 260 -158 269 -148 2 2 13 93 23 203 11 109 22 219 25 246 l6 47 -41 0 c-84 0 -128 86 -76 147 21 24 33 28 102 34 302 28 931 17 996 -17 15 -8 31 -28 37 -47 21 -64 -20 -117 -91 -117 l-38 0 0 -107 c0 -106 18 -384 25 -391 2 -2 45 18 96 44 426 220 692 656 692 1134 0 612 -431 1134 -1033 1250 -97 19 -267 31 -330 24z m254 -620 c172 -42 335 -193 396 -367 63 -179 39 -369 -61 -490 -36 -44 -130 -110 -140 -99 -7 7 -53 313 -65 434 l-7 67 -130 52 c-71 29 -135 52 -142 52 -7 0 -71 -23 -142 -52 l-130 -52 -7 -72 c-9 -97 -55 -418 -62 -429 -9 -14 -83 33 -130 85 -171 182 -143 514 61 719 151 151 345 204 559 152z m-85 -574 c51 -26 85 -92 75 -146 -9 -48 -57 -101 -105 -115 -32 -10 -46 -9 -84 5 -61 24 -90 66 -90 131 0 111 105 176 204 125z"/><path d="M1250 287 c-46 -23 -62 -71 -58 -175 3 -68 8 -96 18 -103 20 -12 121 -11 140 1 16 10 30 148 20 209 -8 54 -74 91 -120 68z"/></g>',
+    attrs: {
+      viewBox: "0 0 256 256",
+    },
+  },
   field:
     "M27 25v7H5V1h22v24zm-3 0H8v4h16v-4zm0-3v-4H8v4h16zM8 15h16v-4H8v4zm0-7h16V4H8v4z",
   fields:
@@ -610,7 +616,7 @@ export function loadIcon(name: string) {
     // in the case of a custom viewBox, we need to set the width and height
     // of the icon def based on the view box since we're scaling all icons
     // down by half currently
-    if (attrs && attrs.viewBox) {
+    if (attrs && attrs.viewBox && name !== "faros") {
       const [width, height] = parseViewBox(attrs.viewBox);
       icon.attrs.width = width / 2;
       icon.attrs.height = height / 2;

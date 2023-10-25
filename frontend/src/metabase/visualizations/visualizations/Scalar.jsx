@@ -4,6 +4,7 @@ import { t } from "ttag";
 
 import _ from "underscore";
 
+import { getChartExtras } from "metabase/visualizations/lib/lighthouse_utils";
 import { fieldSetting } from "metabase/visualizations/lib/settings/utils";
 import { columnSettings } from "metabase/visualizations/lib/settings/column";
 import { compactifyValue } from "metabase/visualizations/lib/scalar_utils";
@@ -166,6 +167,8 @@ export default class Scalar extends Component {
       gridSize,
       totalNumGridCols,
       fontFamily,
+      dashcard,
+      rawSeries,
     } = this.props;
 
     const columnIndex = this._getColumnIndex(cols, settings);
@@ -191,6 +194,11 @@ export default class Scalar extends Component {
       settings,
     };
     const isClickable = visualizationIsClickable(clicked);
+
+    const chartExtras =
+      dashcard && rawSeries && rawSeries[0]["data"]
+        ? getChartExtras(dashcard, rawSeries, settings)
+        : undefined;
 
     return (
       <ScalarWrapper>
@@ -229,6 +237,7 @@ export default class Scalar extends Component {
               onChangeCardAndRun &&
               (() => onChangeCardAndRun({ nextCard: card }))
             }
+            chartExtras={chartExtras}
           />
         )}
       </ScalarWrapper>
