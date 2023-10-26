@@ -38,7 +38,7 @@ export function getChartExtras(dashcard, rawSeries, settings) {
   const { id, card, dashboard_id, series } = dashcard;
   const { display, updated_at } = card;
   const names = [card.name];
-  if (Array.isArray(series) && series.length > 0) {
+  if (series.length > 0) {
     series.forEach(x => names.push(x.name));
   }
   const title = settings["card.title"] ?? names.join(", ");

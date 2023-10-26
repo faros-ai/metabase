@@ -51,7 +51,6 @@ const LegendCaption = ({
         },
       };
       window.parent.postMessage(messageData, "*");
-      console.log(`write to parent window: ${messageData}`);
     }
     setIsExplanationOpen(!isExplanationOpen);
   };
@@ -60,7 +59,7 @@ const LegendCaption = ({
     if (
       event.source === window.parent &&
       event.data.lighthouse &&
-      event.data.lighthouse.type === "ChartExplainer"
+      event.data.lighthouse?.type === "ChartExplainer"
     ) {
       const {
         dashboard_id: dashboardId,
@@ -73,7 +72,6 @@ const LegendCaption = ({
         chartExtras["dashboard_id"] === dashboardId &&
         chartExtras["id"] === id
       ) {
-        console.log(`Message from ${event.origin}: ${event.data}`);
         setExplanation(chartExplanation);
       }
     }

@@ -616,6 +616,7 @@ export function loadIcon(name: string) {
     // in the case of a custom viewBox, we need to set the width and height
     // of the icon def based on the view box since we're scaling all icons
     // down by half currently
+    // we don't need resizing for the faros icon.
     if (attrs && attrs.viewBox && name !== "faros") {
       const [width, height] = parseViewBox(attrs.viewBox);
       icon.attrs.width = width / 2;

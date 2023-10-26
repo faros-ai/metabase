@@ -83,7 +83,6 @@ export const ScalarTitle = ({
         },
       };
       window.parent.postMessage(messageData, "*");
-      console.log(`write to parent window: ${messageData}`);
     }
     setIsExplanationOpen(!isExplanationOpen);
   };
@@ -100,7 +99,6 @@ export const ScalarTitle = ({
       chartExtras["dashboard_id"] === dashboardId &&
       chartExtras["id"] === id
     ) {
-      console.log(`Message from ${event.origin}: ${event.data}`);
       setExplanation(chartExplanation);
     }
   };

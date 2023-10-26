@@ -40,7 +40,10 @@ export function initializeEmbedding(store) {
           store.dispatch(push(e.data.metabase.location));
         }
       } else if (e.data.lighthouse) {
-        if (e.data.lighthouse.type === "FeatureToggles") {
+        if (
+          e.data.lighthouse?.type === "FeatureToggles" &&
+          e.data.lighthouse?.payload
+        ) {
           const { enableChartExplainer: enable_chart_explainer } =
             e.data.lighthouse.payload;
           store.dispatch(toggleChartExplainer({ enable_chart_explainer }));
