@@ -904,7 +904,7 @@
                             {:card-ids (db/select-ids Card :collection_id (u/the-id collection-before-update))}))]
       (api.card/delete-alert-and-notify-archived! alerts))))
 
-(defn- is-pipeline-reports-coln
+(defn- is-inside-pipeline-reports-coln
   "Check if the elements of collection's location match a pipeline reports collection."
   [collection]
   (let [parents (some->> (str/split (:location collection) #"/")
@@ -919,7 +919,7 @@
   "Check if the collection's name is 'User reports' and it is a pipeline reports collection."
   [collection]
   (and (= (:name collection) "User reports")
-       (is-pipeline-reports-coln collection)))
+       (is-inside-pipeline-reports-coln collection)))
 
 #_{:clj-kondo/ignore [:deprecated-var]}
 (api/defendpoint-schema PUT "/:id"
