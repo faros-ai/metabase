@@ -9,6 +9,7 @@ const propTypes = {
   icon: PropTypes.shape(iconPropTypes),
   actionButtons: PropTypes.node,
   onChangeCardAndRun: PropTypes.func,
+  chartExtras: PropTypes.object,
 };
 
 const ChartCaption = ({
@@ -17,6 +18,7 @@ const ChartCaption = ({
   icon,
   actionButtons,
   onChangeCardAndRun,
+  chartExtras = undefined,
 }) => {
   const title = settings["card.title"] ?? series[0].card.name;
   const description = settings["card.description"];
@@ -43,6 +45,7 @@ const ChartCaption = ({
       icon={icon}
       actionButtons={actionButtons}
       onSelectTitle={canSelectTitle ? handleSelectTitle : undefined}
+      chartExtras={chartExtras}
     />
   );
 };

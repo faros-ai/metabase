@@ -13,6 +13,8 @@ import { getFriendlyName, MAX_SERIES } from "metabase/visualizations/lib/utils";
 import { addCSSRule } from "metabase/lib/dom";
 import { formatValue } from "metabase/lib/formatting";
 
+import { getChartExtras } from "metabase/visualizations/lib/lighthouse_utils";
+
 import { getComputedSettingsForSeries } from "metabase/visualizations/lib/settings/visualization";
 
 import {
@@ -302,6 +304,8 @@ export default class LineAreaBarChart extends Component {
       onHoverChange,
       onRemoveSeries,
       settings,
+      dashcard,
+      rawSeries,
     } = this.props;
 
     // Note (EmmadUsmani): Stacked charts should be reversed so series are stacked
@@ -320,6 +324,11 @@ export default class LineAreaBarChart extends Component {
       canSelectTitle,
     } = this.getLegendSettings(orderedSeries);
 
+    const chartExtras =
+      dashcard && rawSeries && rawSeries[0]["data"]
+        ? getChartExtras(dashcard, rawSeries, settings)
+        : undefined;
+
     return (
       <LineAreaBarChartRoot
         className={cx(
@@ -336,6 +345,7 @@ export default class LineAreaBarChart extends Component {
             icon={headerIcon}
             actionButtons={actionButtons}
             onSelectTitle={canSelectTitle ? this.handleSelectTitle : undefined}
+            chartExtras={chartExtras}
           />
         )}
         <LegendLayout

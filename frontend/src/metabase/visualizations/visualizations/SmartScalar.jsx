@@ -8,6 +8,7 @@ import { color } from "metabase/lib/colors";
 
 import Icon from "metabase/components/Icon";
 
+import { getChartExtras } from "metabase/visualizations/lib/lighthouse_utils";
 import { columnSettings } from "metabase/visualizations/lib/settings/column";
 import { NoBreakoutError } from "metabase/visualizations/lib/errors";
 import { compactifyValue } from "metabase/visualizations/lib/scalar_utils";
@@ -102,6 +103,7 @@ export default class Smart extends React.Component {
       width,
       totalNumGridCols,
       fontFamily,
+      dashcard,
     } = this.props;
 
     const metricIndex = cols.findIndex(col => !isDate(col));
@@ -170,6 +172,11 @@ export default class Smart extends React.Component {
 
     const isClickable = visualizationIsClickable(clicked);
 
+    const chartExtras =
+      dashcard && rawSeries && rawSeries[0]["data"]
+        ? getChartExtras(dashcard, rawSeries, settings)
+        : undefined;
+
     return (
       <ScalarWrapper>
         <div className="Card-title absolute top right p1 px2">
@@ -207,6 +214,7 @@ export default class Smart extends React.Component {
               onChangeCardAndRun &&
               (() => onChangeCardAndRun({ nextCard: card }))
             }
+            chartExtras={chartExtras}
           />
         )}
         <div className="SmartWrapper">
