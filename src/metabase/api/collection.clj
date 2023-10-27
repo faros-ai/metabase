@@ -907,10 +907,8 @@
 (defn- is-inside-pipeline-reports-coln
   "Check if the elements of collection's location match a pipeline reports collection."
   [collection]
-  (let [parents (some->> (str/split (:location collection) #"/")
-                         rest
-                         not-empty
-                         (map #(:name (db/select-one Collection :id (Integer/parseInt %)))))]
+  (let [parents (some->> (collection/location-path->ids (:location collection))
+                         (map #(:name (db/select-one Collection :id %))))]
     (and (= (count parents) 4)
          (= (take 2 parents) ["Aion", "Pipelines"])
          (= (last parents) "Reports"))))
