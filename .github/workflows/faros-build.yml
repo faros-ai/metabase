@@ -23,6 +23,9 @@ jobs:
               owner: 'faros-ai',
               repo: '${{ secrets.FAROS_METABASE_REPO }}',
               workflow_id: '${{ secrets.FAROS_METABASE_BUILD_WORKFLOW }}',
-              ref: '${{ secrets.FAROS_METABASE_BUILD_BRANCH }}'
+              ref: '${{ secrets.FAROS_METABASE_BUILD_BRANCH }}',
+              inputs: {
+                deploy_dev_enabled: "true"
+              }
             })
  
