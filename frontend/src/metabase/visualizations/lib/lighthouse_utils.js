@@ -42,7 +42,10 @@ export function getChartExtras(dashcard, rawSeries, settings) {
     series.forEach(x => names.push(x.name));
   }
   const title = settings["card.title"] ?? names.join(", ");
-  const sql_queries = rawSeries.map(x => x.data.native_form.query);
+  // native_form is missing when the dashboard is NOT shown in Alastor
+  const sql_queries = rawSeries
+    .map(x => x.data?.native_form?.query)
+    .filter(x => x);
 
   const visualization_settings = getVisualizationSettings(settings);
 
