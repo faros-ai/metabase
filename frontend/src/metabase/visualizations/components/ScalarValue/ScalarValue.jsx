@@ -88,18 +88,24 @@ export const ScalarTitle = ({
   };
 
   const handleMessage = event => {
-    const {
-      dashboard_id: dashboardId,
-      id,
-      explanation: chartExplanation,
-    } = event.data;
-
     if (
-      chartExtras &&
-      chartExtras["dashboard_id"] === dashboardId &&
-      chartExtras["id"] === id
+      event.source === window.parent &&
+      event.data.lighthouse &&
+      event.data.lighthouse?.type === "ChartExplainer"
     ) {
-      setExplanation(chartExplanation);
+      const {
+        dashboard_id: dashboardId,
+        id,
+        explanation: chartExplanation,
+      } = event.data.lighthouse.payload;
+
+      if (
+        chartExtras &&
+        chartExtras["dashboard_id"] === dashboardId &&
+        chartExtras["id"] === id
+      ) {
+        setExplanation(chartExplanation);
+      }
     }
   };
 
