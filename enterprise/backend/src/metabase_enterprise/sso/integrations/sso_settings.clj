@@ -3,29 +3,31 @@
   the SSO backends and the generic routing code used to determine which SSO backend to use need this
   information. Separating out this information creates a better dependency graph and avoids circular dependencies."
   (:require
+   [malli.core :as mc]
    [metabase.integrations.common :as integrations.common]
    [metabase.models.setting :as setting :refer [defsetting]]
    [metabase.models.setting.multi-setting :refer [define-multi-setting-impl]]
    [metabase.public-settings :as public-settings]
    [metabase.util.i18n :refer [deferred-tru trs tru]]
    [metabase.util.log :as log]
-   #_{:clj-kondo/ignore [:deprecated-namespace]}
-   [metabase.util.schema :as su]
+   [metabase.util.malli :as mu]
+   [metabase.util.malli.schema :as ms]
    [saml20-clj.core :as saml]
    [schema.core :as s]))
 
 (set! *warn-on-reflection* true)
 
 (def ^:private GroupMappings
-  (s/maybe {su/KeywordOrString [su/IntGreaterThanZero]}))
+  [:maybe [:map-of ms/KeywordOrString [:sequential ms/PositiveInt]]])
 
 (def ^:private ^{:arglists '([group-mappings])} validate-group-mappings
-  (s/validator GroupMappings))
+  (mc/validator GroupMappings))
 
 (defsetting saml-identity-provider-uri
   (deferred-tru "This is the URL where your users go to log in to your identity provider. Depending on which IdP you''re
 using, this usually looks like https://your-org-name.example.com or https://example.com/app/my_saml_app/abc123/sso/saml")
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (s/defn ^:private validate-saml-idp-cert
   "Validate that an encoded identity provider certificate is valid, or throw an Exception."
@@ -41,6 +43,7 @@ using, this usually looks like https://your-org-name.example.com or https://exam
   (deferred-tru "Encoded certificate for the identity provider. Depending on your IdP, you might need to download this,
 open it in a text editor, then copy and paste the certificate's contents here.")
   :feature :sso-saml
+  :audit   :no-value
   :setter  (fn [new-value]
             ;; when setting the idp cert validate that it's something we
              (when new-value
@@ -50,54 +53,64 @@ open it in a text editor, then copy and paste the certificate's contents here.")
 (defsetting saml-identity-provider-issuer
   (deferred-tru "This is a unique identifier for the IdP. Often referred to as Entity ID or simply 'Issuer'. Depending
 on your IdP, this usually looks something like http://www.example.com/141xkex604w0Q5PN724v")
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-application-name
   (deferred-tru "This application name will be used for requests to the Identity Provider")
   :default "Metabase"
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-keystore-path
   (deferred-tru "Absolute path to the Keystore file to use for signing SAML requests")
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-keystore-password
   (deferred-tru "Password for opening the keystore")
   :default    "changeit"
   :sensitive? true
-  :feature    :sso-saml)
+  :feature    :sso-saml
+  :audit      :getter)
 
 (defsetting saml-keystore-alias
   (deferred-tru "Alias for the key that {0} should use for signing SAML requests"
                 (public-settings/application-name-for-setting-descriptions))
   :default "metabase"
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-attribute-email
   (deferred-tru "SAML attribute for the user''s email address")
   :default "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-attribute-firstname
   (deferred-tru "SAML attribute for the user''s first name")
   :default "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname"
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-attribute-lastname
   (deferred-tru "SAML attribute for the user''s last name")
   :default "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-group-sync
   (deferred-tru "Enable group membership synchronization with SAML.")
   :type    :boolean
   :default false
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-attribute-group
   (deferred-tru "SAML attribute for group syncing")
   :default "member_of"
-  :feature :sso-saml)
+  :feature :sso-saml
+  :audit   :getter)
 
 (defsetting saml-group-mappings
   ;; Should be in the form: {"groupName": [1, 2, 3]} where keys are SAML groups and values are lists of MB groups IDs
@@ -107,7 +120,9 @@ on your IdP, this usually looks something like http://www.example.com/141xkex604
   :cache?  false
   :default {}
   :feature :sso-saml
-  :setter  (comp (partial setting/set-value-of-type! :json :saml-group-mappings) validate-group-mappings))
+  :audit   :getter
+  :setter  (comp (partial setting/set-value-of-type! :json :saml-group-mappings)
+                 (partial mu/validate-throw validate-group-mappings)))
 
 (defsetting saml-configured
   (deferred-tru "Are the mandatory SAML settings configured?")
@@ -124,6 +139,7 @@ on your IdP, this usually looks something like http://www.example.com/141xkex604
   :type    :boolean
   :default false
   :feature :sso-saml
+  :audit   :getter
   :getter  (fn []
              (if (saml-configured)
                (setting/get-value-of-type :boolean :saml-enabled)
@@ -131,40 +147,47 @@ on your IdP, this usually looks something like http://www.example.com/141xkex604
 
 (defsetting jwt-identity-provider-uri
   (deferred-tru "URL of JWT based login page")
-  :feature :sso-jwt)
+  :feature :sso-jwt
+  :audit   :getter)
 
 (defsetting jwt-shared-secret
   (deferred-tru (str "String used to seed the private key used to validate JWT messages."
                      " "
                      "A hexadecimal-encoded 256-bit key (i.e., a 64-character string) is strongly recommended."))
   :type    :string
-  :feature :sso-jwt)
+  :feature :sso-jwt
+  :audit   :no-value)
 
 (defsetting jwt-attribute-email
   (deferred-tru "Key to retrieve the JWT user's email address")
   :default "email"
-  :feature :sso-jwt)
+  :feature :sso-jwt
+  :audit   :getter)
 
 (defsetting jwt-attribute-firstname
   (deferred-tru "Key to retrieve the JWT user's first name")
   :default "first_name"
-  :feature :sso-jwt)
+  :feature :sso-jwt
+  :audit   :getter)
 
 (defsetting jwt-attribute-lastname
   (deferred-tru "Key to retrieve the JWT user's last name")
   :default "last_name"
-  :feature :sso-jwt)
+  :feature :sso-jwt
+  :audit   :getter)
 
 (defsetting jwt-attribute-groups
   (deferred-tru "Key to retrieve the JWT user's groups")
   :default "groups"
-  :feature :sso-jwt)
+  :feature :sso-jwt
+  :audit   :getter)
 
 (defsetting jwt-group-sync
   (deferred-tru "Enable group membership synchronization with JWT.")
   :type    :boolean
   :default false
-  :feature :sso-jwt)
+  :feature :sso-jwt
+  :audit   :getter)
 
 (defsetting jwt-group-mappings
   ;; Should be in the form: {"groupName": [1, 2, 3]} where keys are JWT groups and values are lists of MB groups IDs
@@ -174,7 +197,9 @@ on your IdP, this usually looks something like http://www.example.com/141xkex604
   :cache?  false
   :default {}
   :feature :sso-jwt
-  :setter  (comp (partial setting/set-value-of-type! :json :jwt-group-mappings) validate-group-mappings))
+  :audit   :getter
+  :setter  (comp (partial setting/set-value-of-type! :json :jwt-group-mappings)
+                 (partial mu/validate-throw validate-group-mappings)))
 
 (defsetting jwt-configured
   (deferred-tru "Are the mandatory JWT settings configured?")
@@ -191,6 +216,7 @@ on your IdP, this usually looks something like http://www.example.com/141xkex604
   :type    :boolean
   :default false
   :feature :sso-jwt
+  :audit   :getter
   :getter  (fn []
              (if (jwt-configured)
                (setting/get-value-of-type :boolean :jwt-enabled)

@@ -7,17 +7,13 @@
    [clojure.walk :as walk]
    [metabase.api.common :refer [*current-user-permissions-set*]]
    [metabase.models
-    :refer [Card
-            Collection
-            Dashboard
-            NativeQuerySnippet
-            Permissions
-            PermissionsGroup
-            Pulse
-            User]]
+    :refer [Card Collection Dashboard NativeQuerySnippet Permissions
+            PermissionsGroup Pulse User]]
    [metabase.models.collection :as collection]
+   [metabase.models.interface :as mi]
    [metabase.models.permissions :as perms]
    [metabase.models.serialization :as serdes]
+   [metabase.public-settings.premium-features-test :as premium-features-test]
    [metabase.test :as mt]
    [metabase.test.fixtures :as fixtures]
    [metabase.util :as u]
@@ -41,31 +37,27 @@
     (is (= "MetaBase@metabase.com's Personal Collection"
            (collection/format-personal-collection-name nil nil "MetaBase@metabase.com" :site)))))
 
+(deftest format-personal-collection-name-length-test
+  (testing "test that an unrealistically long collection name with unicode letters is still less than the max length for a slug (metabase#33917)"
+    (mt/with-temporary-setting-values [site-locale "ru"]
+      (is (< (count (#'collection/slugify (collection/format-personal-collection-name (repeat 20 "\u0411") ; Cyrillic "b" character
+                                                                                      (repeat 20 "\u0411")
+                                                                                      "MetaBase@metabase.com"
+                                                                                      :site)))
+             (var-get #'collection/collection-slug-max-length))))))
+
 (deftest create-collection-test
   (testing "test that we can create a new Collection with valid inputs"
-    (t2.with-temp/with-temp [Collection collection {:name "My Favorite Cards", :color "#ABCDEF"}]
+    (t2.with-temp/with-temp [Collection collection {:name "My Favorite Cards"}]
       (is (partial= (merge
                      (mt/object-defaults Collection)
                      {:name              "My Favorite Cards"
                       :slug              "my_favorite_cards"
                       :description       nil
-                      :color             "#ABCDEF"
                       :archived          false
                       :location          "/"
                       :personal_owner_id nil})
                     collection)))))
-
-(deftest color-validation-test
-  (testing "Collection colors should be validated when inserted into the DB"
-    (doseq [[input msg] {nil        "Missing color"
-                         "#ABC"     "Too short"
-                         "#BCDEFG"  "Invalid chars"
-                         "#ABCDEFF" "Too long"
-                         "ABCDEF"   "Missing hash prefix"}]
-      (testing msg
-        (is (thrown?
-             Exception
-             (t2/insert! Collection {:name "My Favorite Cards", :color input})))))))
 
 (deftest with-temp-defaults-test
   (testing "double-check that `with-temp-defaults` are working correctly for Collection"
@@ -358,7 +350,7 @@
 (defmacro ^:private with-collection-in-location [[collection-binding location] & body]
   `(let [name# (mt/random-name)]
      (try
-       (let [~collection-binding (first (t2/insert-returning-instances! Collection :name name#, :color "#ABCDEF", :location ~location))]
+       (let [~collection-binding (first (t2/insert-returning-instances! Collection :name name#, :location ~location))]
          ~@body)
        (finally
          (t2/delete! Collection :name name#)))))
@@ -742,13 +734,23 @@
 
 (deftest perms-for-archiving-exceptions-test
   (testing "If you try to calculate permissions to archive the Root Collection, throw an Exception!"
-    (is (thrown?
+    (is (thrown-with-msg?
          Exception
+         #"You cannot archive the Root Collection."
          (collection/perms-for-archiving collection/root-collection))))
 
+  (testing "Let's make sure we get an Exception when we try to archive the Custom Reports Collection"
+    (t2.with-temp/with-temp [Collection cr-collection {}]
+      (with-redefs [perms/default-custom-reports-collection (constantly cr-collection)]
+        (is (thrown-with-msg?
+             Exception
+             #"You cannot archive the Custom Reports Collection."
+             (collection/perms-for-archiving cr-collection))))))
+
   (testing "Let's make sure we get an Exception when we try to archive a Personal Collection"
-    (is (thrown?
+    (is (thrown-with-msg?
          Exception
+         #"You cannot archive a Personal Collection."
          (collection/perms-for-archiving (collection/user->personal-collection (mt/fetch-user :lucky))))))
 
   (testing "invalid input"
@@ -1250,6 +1252,31 @@
       (is (malli= [:map [:personal_collection_id ms/PositiveInt]]
                   (t2/hydrate temp-user :personal_collection_id))))))
 
+(deftest hydrate-is-personal-test
+  (binding [collection/*allow-deleting-personal-collections* true]
+    (mt/with-temp
+      [:model/User       {user-id :id}               {}
+       :model/Collection {personal-coll :id}         {:personal_owner_id user-id}
+       :model/Collection {nested-personal-coll :id}  {:location          (format "/%d/" personal-coll)
+                                                      :personal_owner_id nil}
+       :model/Collection {top-level-coll :id}        {:location "/"}
+       :model/Collection {nested-top-level-coll :id} {:location (format "/%d/" top-level-coll)}]
+      (let [check-is-personal (fn [id-or-ids]
+                                (if (int? id-or-ids)
+                                  (-> (t2/select-one :model/Collection id-or-ids)
+                                      (t2/hydrate :is_personal)
+                                      :is_personal)
+                                  (as-> (t2/select :model/Collection :id [:in id-or-ids] {:order-by [:id]}) collections
+                                    (t2/hydrate collections :is_personal)
+                                    (map :is_personal collections))))]
+
+        (testing "simple hydration and batched hydration should return correctly"
+          (is (= [true true false false]
+                 (map check-is-personal [personal-coll nested-personal-coll top-level-coll nested-top-level-coll])
+                 (check-is-personal [personal-coll nested-personal-coll top-level-coll nested-top-level-coll]))))
+        (testing "root collection shouldn't be hydrated"
+          (is (= nil (t2/hydrate nil :is_personal)))
+          (is (= [nil true] (map :is_personal (t2/hydrate [nil (t2/select-one :model/Collection personal-coll)] :is_personal)))))))))
 
 ;;; +----------------------------------------------------------------------------------------------------------------+
 ;;; |                                    Moving Collections "Across the Boundary"                                    |
@@ -1430,7 +1457,6 @@
              #"Collection must be in the same namespace as its parent"
              (t2/insert! Collection
                          {:location  (format "/%d/" (:id parent-collection))
-                          :color     "#F38630"
                           :name      "Child Collection"
                           :namespace child-namespace}))))
 
@@ -1456,8 +1482,7 @@
            clojure.lang.ExceptionInfo
            #"Personal Collections must be in the default namespace"
            (t2/insert! Collection
-                       {:color             "#F38630"
-                        :name              "Personal Collection"
+                       {:name              "Personal Collection"
                         :namespace         "x"
                         :personal_owner_id user-id}))))))
 
@@ -1653,3 +1678,35 @@
           (is (= "e816af2d"
                  (serdes/raw-hash ["grandchild" :yolocorp c2-hash now])
                  (serdes/identity-hash c3))))))))
+
+(deftest instance-analytics-collections-test
+  (testing "Instance analytics and it's contents isn't writable, even for admins."
+    (t2.with-temp/with-temp [Collection audit-collection {}
+                             Card       audit-card       {:collection_id (:id audit-collection)}
+                             Dashboard  audit-dashboard  {:collection_id (:id audit-collection)}
+                             Collection cr-collection    {}
+                             Card       cr-card          {:collection_id (:id cr-collection)}
+                             Dashboard  cr-dashboard     {:collection_id (:id cr-collection)}]
+      (with-redefs [perms/default-audit-collection          (constantly audit-collection)
+                    perms/default-custom-reports-collection (constantly cr-collection)]
+        (mt/with-current-user (mt/user->id :crowberto)
+          (premium-features-test/with-premium-features #{:audit-app}
+            (is (not (mi/can-write? audit-collection))
+                "Admin isn't able to write to audit collection")
+            (is (not (mi/can-write? audit-card))
+                "Admin isn't able to write to audit collection card")
+            (is (not (mi/can-write? audit-dashboard))
+                "Admin isn't able to write to audit collection dashboard"))
+          (premium-features-test/with-premium-features #{}
+            (is (not (mi/can-read? audit-collection))
+                "Admin isn't able to read audit collection when audit app isn't enabled")
+            (is (not (mi/can-read? audit-card))
+                "Admin isn't able to read audit collection card when audit app isn't enabled")
+            (is (not (mi/can-read? audit-dashboard))
+                "Admin isn't able to read audit collection dashboard when audit app isn't enabled")
+            (is (not (mi/can-read? cr-collection))
+                "Admin isn't able to read custom reports collection when audit app isn't enabled")
+            (is (not (mi/can-read? cr-card))
+                "Admin isn't able to read custom reports card when audit app isn't enabled")
+            (is (not (mi/can-read? cr-dashboard))
+                "Admin isn't able to read custom reports dashboard when audit app isn't enabled")))))))

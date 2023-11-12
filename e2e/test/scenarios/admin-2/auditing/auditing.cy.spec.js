@@ -45,6 +45,19 @@ function generateDashboards(user) {
   cy.createDashboard({ name: `${user} dashboard` });
 }
 
+describeEE("auditing > Auditv1 deprecation", () => {
+  it("should show an audit deprecation notice", () => {
+    restore();
+    cy.signInAsAdmin();
+    setTokenFeatures("all");
+
+    cy.visit("/admin/audit");
+
+    cy.findByTextEnsureVisible(/metabase analytics collection/i);
+    cy.findByTextEnsureVisible(/will be removed in a future release/i);
+  });
+});
+
 describeEE("audit > auditing", () => {
   const ADMIN_QUESTION = "admin question";
   const ADMIN_DASHBOARD = "admin dashboard";
@@ -238,7 +251,7 @@ describeEE("audit > auditing", () => {
       // All questions tab
       cy.visit("/admin/audit/questions/all");
       cy.findByPlaceholderText("Question name");
-      cy.findAllByText("Sample Database").should("have.length", 5);
+      cy.findAllByText("Sample Database").should("have.length", 6);
       // eslint-disable-next-line no-unscoped-text-selectors -- deprecated usage
       cy.findByText(NORMAL_QUESTION);
       // eslint-disable-next-line no-unscoped-text-selectors -- deprecated usage

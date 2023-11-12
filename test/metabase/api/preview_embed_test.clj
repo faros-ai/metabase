@@ -9,7 +9,6 @@
    [metabase.models.dashboard-card :refer [DashboardCard]]
    [metabase.test :as mt]
    [metabase.util :as u]
-   [schema.core :as s]
    [toucan2.tools.with-temp :as t2.with-temp]))
 
 ;;; --------------------------------------- GET /api/preview_embed/card/:token ---------------------------------------
@@ -159,15 +158,15 @@
             (testing "check this is the same result as when a default value is provided"
               (is (= [[107]]
                      (mt/rows (mt/user-http-request :crowberto :get 202 (str (card-query-url card {:_embedding_params {:date "enabled"}})
-                                                                        "?date=Q1-2014")))))))
+                                                                         "?date=Q1-2014")))))))
           (testing "an empty value should apply if provided as an empty string in the query params"
             (is (= [[1000]]
                    (mt/rows (mt/user-http-request :crowberto :get 202 (str (card-query-url card {:_embedding_params {:date "enabled"}})
-                                                                      "?date="))))))
+                                                                       "?date="))))))
           (testing "an empty value should apply if provided as nil in the JWT params"
             (is (= [[1000]]
                    (mt/rows (mt/user-http-request :crowberto :get 202 (card-query-url card {:_embedding_params {:date "enabled"}
-                                                                                       :params {:date nil}}))))))))
+                                                                                            :params {:date nil}}))))))))
       (testing "if the param is disabled"
         (t2.with-temp/with-temp
           [Card card (assoc (embed-test/card-with-date-field-filter-default) :embedding_params {:date "disabled"})]
@@ -183,11 +182,11 @@
           (testing "an empty value should apply if provided as nil in the JWT params"
             (is (= [[1000]]
                    (mt/rows (mt/user-http-request :crowberto :get 202 (card-query-url card {:_embedding_params {:date "locked"}
-                                                                                       :params {:date nil}})))))
+                                                                                            :params {:date nil}})))))
             (testing "check this is different to when a non-nil value is provided"
               (is (= [[138]]
                      (mt/rows (mt/user-http-request :crowberto :get 202 (card-query-url card {:_embedding_params {:date "locked"}
-                                                                                      :params {:date "Q2-2014"}})))))))
+                                                                                              :params {:date "Q2-2014"}})))))))
           (testing "an empty string value is invalid and should result in an error"
             (is (= "You must specify a value for :date in the JWT."
                    (mt/user-http-request :crowberto :get 400 (card-query-url card {:_embedding_params {:date "locked"}
@@ -294,20 +293,18 @@
           (testing "check that if embedding is enabled globally fail if the token is missing a `:locked` parameter"
             (is (= "You must specify a value for :venue_id in the JWT."
                    (mt/user-http-request :crowberto :get 400 (dashcard-url dashcard
-                                                               {:_embedding_params {:venue_id "locked"}})))))
+                                                                           {:_embedding_params {:venue_id "locked"}})))))
 
           (testing "If `:locked` param is supplied, request should succeed"
-            (is (schema= {:status   (s/eq "completed")
-                          :data     {:rows     (s/eq [[1]])
-                                     s/Keyword s/Any}
-                          s/Keyword s/Any}
-                         (mt/user-http-request :crowberto :get 202
-                                               (dashcard-url dashcard {:_embedding_params {:venue_id "locked"}, :params {:venue_id 100}})))))
+            (is (=? {:status   "completed"
+                     :data     {:rows     [[1]]}}
+                    (mt/user-http-request :crowberto :get 202
+                                          (dashcard-url dashcard {:_embedding_params {:venue_id "locked"}, :params {:venue_id 100}})))))
 
           (testing "If `:locked` parameter is present in URL params, request should fail"
             (is (= "You can only specify a value for :venue_id in the JWT."
                    (mt/user-http-request :crowberto :get 400 (str (dashcard-url dashcard
-                                                                    {:_embedding_params {:venue_id "locked"}, :params {:venue_id 100}})
+                                                                                {:_embedding_params {:venue_id "locked"}, :params {:venue_id 100}})
                                                                   "?venue_id=200"))))))))))
 
 (deftest dashcard-disabled-params-test
@@ -337,20 +334,16 @@
                                                                   "?venue_id=200")))))
 
           (testing "If an `:enabled` param is present in the JWT, that's ok"
-            (is (schema= {:status   (s/eq "completed")
-                          :data     {:rows     (s/eq [[1]])
-                                     s/Keyword s/Any}
-                          s/Keyword s/Any}
-                         (mt/user-http-request :crowberto :get 202 (dashcard-url dashcard {:_embedding_params {:venue_id "enabled"}
-                                                                                           :params            {:venue_id 100}})))))
+            (is (=? {:status "completed"
+                     :data   {:rows [[1]]}}
+                    (mt/user-http-request :crowberto :get 202 (dashcard-url dashcard {:_embedding_params {:venue_id "enabled"}
+                                                                                      :params            {:venue_id 100}})))))
 
           (testing "If an `:enabled` param is present in URL params but *not* the JWT, that's ok"
-            (is (schema= {:status   (s/eq "completed")
-                          :data     {:rows     (s/eq [[0]])
-                                     s/Keyword s/Any}
-                          s/Keyword s/Any}
-                         (mt/user-http-request :crowberto :get 202 (str (dashcard-url dashcard {:_embedding_params {:venue_id "enabled"}})
-                                                                        "?venue_id=200"))))))))))
+            (is (=? {:status "completed"
+                     :data   {:rows [[0]]}}
+                    (mt/user-http-request :crowberto :get 202 (str (dashcard-url dashcard {:_embedding_params {:venue_id "enabled"}})
+                                                                   "?venue_id=200"))))))))))
 
 (deftest dashcard-editable-query-params-test
   (testing (str "Check that editable query params work correctly and keys get coverted from strings to keywords, even "
@@ -366,13 +359,12 @@
                                                                            :slug "num_birds"
                                                                            :name "Number of Birds"
                                                                            :type "number"}]}}]
-        (is (schema= {:status   (s/eq "completed")
-                      s/Keyword s/Any}
-                     (mt/user-http-request :crowberto :get 202 (str (dashcard-url dashcard
-                                                                      {:_embedding_params {:num_birds     :locked
-                                                                                           :2nd_date_seen :enabled}
-                                                                       :params            {:num_birds 2}})
-                                                                    "?2nd_date_seen=2018-02-14"))))))))
+        (is (=? {:status "completed"}
+                (mt/user-http-request :crowberto :get 202 (str (dashcard-url dashcard
+                                                                 {:_embedding_params {:num_birds     :locked
+                                                                                      :2nd_date_seen :enabled}
+                                                                  :params            {:num_birds 2}})
+                                                               "?2nd_date_seen=2018-02-14"))))))))
 
 (deftest editable-params-should-not-be-invalid-test
   (testing "Make sure that editable params do not result in \"Invalid Parameter\" exceptions (#7212)"

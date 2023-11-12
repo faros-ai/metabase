@@ -27,12 +27,17 @@ import {
   dashboardHeader,
   openProductsTable,
   updateDashboardCards,
-  createTextCard,
+  getTextCardDetails,
+  openDashboardMenu,
 } from "e2e/support/helpers";
 
 import { SAMPLE_DB_ID } from "e2e/support/cypress_data";
 import { SAMPLE_DATABASE } from "e2e/support/cypress_sample_database";
-import { ORDERS_DASHBOARD_ID } from "e2e/support/cypress_sample_instance_data";
+import {
+  ORDERS_DASHBOARD_DASHCARD_ID,
+  ORDERS_DASHBOARD_ID,
+  ORDERS_QUESTION_ID,
+} from "e2e/support/cypress_sample_instance_data";
 
 const { ORDERS, ORDERS_ID, PRODUCTS, PEOPLE, PEOPLE_ID } = SAMPLE_DATABASE;
 
@@ -88,7 +93,8 @@ describe("scenarios > dashboard", () => {
         .click();
 
       popover().within(() => {
-        cy.findByText("Sample Database").click();
+        cy.findByPlaceholderText(/Search for some/).type("Pro");
+        // cy.findByText("Sample Database").click();
         cy.findByText("Products").click();
       });
 
@@ -247,6 +253,63 @@ describe("scenarios > dashboard", () => {
         }
       });
 
+      it("should hide personal collections when adding questions to a dashboard in public collection", () => {
+        const collectionInRoot = {
+          name: "Collection in root collection",
+        };
+        cy.createCollection(collectionInRoot);
+        const myPersonalCollection = "My personal collection";
+        cy.createDashboard({
+          name: "dashboard in root collection",
+        }).then(({ body: { id: dashboardId } }) => {
+          visitDashboard(dashboardId);
+        });
+
+        cy.log("assert that personal collections are not visible");
+        editDashboard();
+        openQuestionsSidebar();
+        sidebar().within(() => {
+          cy.findByText("Our analytics").should("be.visible");
+          cy.findByText(myPersonalCollection).should("not.exist");
+          cy.findByText(collectionInRoot.name).should("be.visible");
+        });
+
+        cy.log("Move dashboard to a personal collection");
+        cy.findByTestId("edit-bar").button("Cancel").click();
+        openDashboardMenu();
+        popover().findByText("Move").click();
+        modal().within(() => {
+          cy.findByRole("heading", { name: myPersonalCollection }).click();
+          cy.button("Move").click();
+        });
+
+        editDashboard();
+        openQuestionsSidebar();
+        sidebar().within(() => {
+          cy.log("go to the root collection");
+          cy.findByText("Our analytics").click();
+          cy.findByText(myPersonalCollection).should("be.visible");
+          cy.findByText(collectionInRoot.name).should("be.visible");
+        });
+
+        cy.log("Move dashboard back to a root collection");
+        cy.findByTestId("edit-bar").button("Cancel").click();
+        openDashboardMenu();
+        popover().findByText("Move").click();
+        modal().within(() => {
+          cy.findByRole("heading", { name: "Our analytics" }).click();
+          cy.button("Move").click();
+        });
+
+        editDashboard();
+        openQuestionsSidebar();
+        sidebar().within(() => {
+          cy.findByText("Our analytics").should("be.visible");
+          cy.findByText(myPersonalCollection).should("not.exist");
+          cy.findByText(collectionInRoot.name).should("be.visible");
+        });
+      });
+
       it("should save a dashboard after adding a saved question from an empty state (metabase#29450)", () => {
         cy.findByTestId("dashboard-empty-state").within(() => {
           cy.findByText("This dashboard is looking empty.");
@@ -331,6 +394,7 @@ describe("scenarios > dashboard", () => {
         cy.log("Should revert the title change if editing is cancelled");
         cy.findByTestId("dashboard-name-heading").clear().type(newTitle).blur();
         cy.findByTestId("edit-bar").button("Cancel").click();
+        modal().button("Discard changes").click();
         cy.findByTestId("edit-bar").should("not.exist");
         cy.get("@updateDashboardSpy").should("not.have.been.called");
         cy.findByDisplayValue(originalDashboardName);
@@ -434,13 +498,13 @@ describe("scenarios > dashboard", () => {
         cy.createDashboard().then(({ body: { id: dashboard_id } }) => {
           const cards = [
             // the bottom card intentionally goes first to have unsorted cards coming from the BE
-            createTextCard({
+            getTextCardDetails({
               row: 1,
               size_x: 24,
               size_y: 1,
               text: "bottom",
             }),
-            createTextCard({
+            getTextCardDetails({
               row: 0,
               size_x: 24,
               size_y: 1,
@@ -683,11 +747,11 @@ describe("scenarios > dashboard", () => {
     });
 
     cy.log("Connect filter to the existing card");
-    cy.request("PUT", `/api/dashboard/${ORDERS_DASHBOARD_ID}/cards`, {
-      cards: [
+    cy.request("PUT", `/api/dashboard/${ORDERS_DASHBOARD_ID}`, {
+      dashcards: [
         {
-          id: 1,
-          card_id: 1,
+          id: ORDERS_DASHBOARD_DASHCARD_ID,
+          card_id: ORDERS_QUESTION_ID,
           row: 0,
           col: 0,
           size_x: 16,
@@ -695,7 +759,7 @@ describe("scenarios > dashboard", () => {
           parameter_mappings: [
             {
               parameter_id: FILTER_ID,
-              card_id: 1,
+              card_id: ORDERS_QUESTION_ID,
               target: [
                 "dimension",
                 [
@@ -744,11 +808,11 @@ describe("scenarios > dashboard", () => {
         }).then(({ body: { id: NEW_DASHBOARD_ID } }) => {
           const COLUMN_REF = `["ref",["field-id",${ORDERS.ID}]]`;
           // Add click behavior to the existing "Orders in a dashboard" dashboard
-          cy.request("PUT", `/api/dashboard/${ORDERS_DASHBOARD_ID}/cards`, {
-            cards: [
+          cy.request("PUT", `/api/dashboard/${ORDERS_DASHBOARD_ID}`, {
+            dashcards: [
               {
-                id: 1,
-                card_id: 1,
+                id: ORDERS_DASHBOARD_DASHCARD_ID,
+                card_id: ORDERS_QUESTION_ID,
                 row: 0,
                 col: 0,
                 size_x: 16,
@@ -789,11 +853,11 @@ describe("scenarios > dashboard", () => {
 
   it("should be possible to scroll vertically after fullscreen layer is closed (metabase#15596)", () => {
     // Make this dashboard card extremely tall so that it spans outside of visible viewport
-    cy.request("PUT", `/api/dashboard/${ORDERS_DASHBOARD_ID}/cards`, {
-      cards: [
+    cy.request("PUT", `/api/dashboard/${ORDERS_DASHBOARD_ID}`, {
+      dashcards: [
         {
-          id: 1,
-          card_id: 1,
+          id: ORDERS_DASHBOARD_DASHCARD_ID,
+          card_id: ORDERS_QUESTION_ID,
           row: 0,
           col: 0,
           size_x: 16,
@@ -833,11 +897,11 @@ describe("scenarios > dashboard", () => {
     });
 
     cy.log("Connect filter to the existing card");
-    cy.request("PUT", `/api/dashboard/${ORDERS_DASHBOARD_ID}/cards`, {
-      cards: [
+    cy.request("PUT", `/api/dashboard/${ORDERS_DASHBOARD_ID}`, {
+      dashcards: [
         {
-          id: 1,
-          card_id: 1,
+          id: ORDERS_DASHBOARD_DASHCARD_ID,
+          card_id: ORDERS_QUESTION_ID,
           row: 0,
           col: 0,
           size_x: 16,
@@ -845,7 +909,7 @@ describe("scenarios > dashboard", () => {
           parameter_mappings: [
             {
               parameter_id: FILTER_ID,
-              card_id: 1,
+              card_id: ORDERS_QUESTION_ID,
               target: ["dimension", ["field", ORDERS.ID]],
             },
           ],
@@ -959,7 +1023,7 @@ describeWithSnowplow("scenarios > dashboard", () => {
       expectGoodSnowplowEvent(
         {
           event: "card_set_to_hide_when_no_results",
-          dashboard_id: 1,
+          dashboard_id: ORDERS_DASHBOARD_ID,
         },
         2,
       );

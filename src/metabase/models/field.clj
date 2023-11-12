@@ -15,7 +15,6 @@
    [metabase.util.i18n :refer [trs tru]]
    [metabase.util.log :as log]
    [methodical.core :as methodical]
-   [toucan.db :as db]
    [toucan2.core :as t2]
    [toucan2.tools.hydrate :as t2.hydrate]))
 
@@ -159,6 +158,13 @@
   [field]
   (let [defaults {:display_name (humanization/name->human-readable-name (:name field))}]
     (merge defaults field)))
+
+(t2/define-before-update :model/Field
+  [field]
+  (u/prog1 (t2/changes field)
+    (when (false? (:active <>))
+      (t2/update! :model/Field {:fk_target_field_id (:id field)} {:semantic_type      nil
+                                                                  :fk_target_field_id nil}))))
 
 ;;; Field permissions
 ;; There are several API endpoints where large instances can return many thousands of Fields. Normally Fields require
@@ -404,7 +410,7 @@
         dimensions (->> d
                         (group-by :field_id))]
     (eduction (map #(assoc % :dimensions (get dimensions (:id %))))
-              (db/select-reducible Field))))
+              (t2/reducible-select Field))))
 
 (defmethod serdes/dependencies "Field" [field]
   ;; Fields depend on their parent Table, plus any foreign Fields referenced by their Dimensions.

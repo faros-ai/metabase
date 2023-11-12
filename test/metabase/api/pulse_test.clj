@@ -2,7 +2,7 @@
   "Tests for /api/pulse endpoints."
   (:require
    [clojure.test :refer :all]
-   [java-time :as t]
+   [java-time.api :as t]
    [metabase.api.card-test :as api.card-test]
    [metabase.api.pulse :as api.pulse]
    [metabase.http-client :as client]
@@ -25,7 +25,6 @@
    [metabase.test :as mt]
    [metabase.test.mock.util :refer [pulse-channel-defaults]]
    [metabase.util :as u]
-   [schema.core :as s]
    [toucan2.core :as t2]
    [toucan2.tools.with-temp :as t2.with-temp]))
 
@@ -110,15 +109,15 @@
 
 (def ^:private default-post-card-ref-validation-error
   {:errors
-   {:cards (str "value must be an array. Each value must satisfy one of the following requirements: "
-                "1) value must be a map with the following keys "
-                "`(collection_id, description, display, id, include_csv, include_xls, name, dashboard_id, parameter_mappings)` "
-                "2) value must be a map with the keys `id`, `include_csv`, `include_xls`, and `dashboard_card_id`. The array cannot be empty.")}})
+   {:cards (str "one or more value must be a map with the following keys "
+                "`(collection_id, description, display, id, include_csv, include_xls, name, dashboard_id, parameter_mappings)`, "
+                "or value must be a map with the keys `id`, `include_csv`, `include_xls`, and `dashboard_card_id`.")}})
 
 (deftest create-pulse-validation-test
   (doseq [[input expected-error]
           {{}
-           {:errors {:name "value must be a non-blank string."}}
+           {:errors {:name "value must be a non-blank string."}
+            :specific-errors {:name ["should be a string, received: nil" "non-blank string, received: nil"]}}
 
            {:name "abc"}
            default-post-card-ref-validation-error
@@ -134,22 +133,22 @@
            {:name  "abc"
             :cards [{:id 100, :include_csv false, :include_xls false, :dashboard_card_id nil}
                     {:id 200, :include_csv false, :include_xls false, :dashboard_card_id nil}]}
-           {:errors {:channels "value must be an array. Each value must be a map. The array cannot be empty."}}
+           {:errors {:channels "one or more map"}}
 
            {:name     "abc"
             :cards    [{:id 100, :include_csv false, :include_xls false, :dashboard_card_id nil}
                        {:id 200, :include_csv false, :include_xls false, :dashboard_card_id nil}]
             :channels "foobar"}
-           {:errors {:channels "value must be an array. Each value must be a map. The array cannot be empty."}}
+           {:errors {:channels "one or more map"}}
 
            {:name     "abc"
             :cards    [{:id 100, :include_csv false, :include_xls false, :dashboard_card_id nil}
                        {:id 200, :include_csv false, :include_xls false, :dashboard_card_id nil}]
             :channels ["abc"]}
-           {:errors {:channels "value must be an array. Each value must be a map. The array cannot be empty."}}}]
+           {:errors {:channels "one or more map"}}}]
     (testing (pr-str input)
-      (is (= expected-error
-             (mt/user-http-request :rasta :post 400 "pulse" input))))))
+      (is (=? expected-error
+              (mt/user-http-request :rasta :post 400 "pulse" input))))))
 
 (defn- remove-extra-channels-fields [channels]
   (for [channel channels]
@@ -381,17 +380,16 @@
 
 (def ^:private default-put-card-ref-validation-error
   {:errors
-   {:cards (str   "value may be nil, or if non-nil, value must be an array. "
-                  "Each value must satisfy one of the following requirements: "
-                  "1) value must be a map with the following keys "
-                  "`(collection_id, description, display, id, include_csv, include_xls, name, dashboard_id, parameter_mappings)` "
-                  "2) value must be a map with the keys `id`, `include_csv`, `include_xls`, and `dashboard_card_id`. The array cannot be empty.")}})
+   {:cards (str "nullable one or more value must be a map with the following keys "
+                "`(collection_id, description, display, id, include_csv, include_xls, name, dashboard_id, parameter_mappings)`, "
+                "or value must be a map with the keys `id`, `include_csv`, `include_xls`, and `dashboard_card_id`.")}})
 
 (deftest update-pulse-validation-test
   (testing "PUT /api/pulse/:id"
     (doseq [[input expected-error]
             {{:name 123}
-             {:errors {:name "value may be nil, or if non-nil, value must be a non-blank string."}}
+             {:errors {:name "nullable value must be a non-blank string."},
+              :specific-errors {:name ["should be a string, received: 123" "non-blank string, received: 123"]}}
 
              {:cards 123}
              default-put-card-ref-validation-error
@@ -403,19 +401,16 @@
              default-put-card-ref-validation-error
 
              {:channels 123}
-             {:errors {:channels (str "value may be nil, or if non-nil, value must be an array. Each value must be a map. "
-                                      "The array cannot be empty.")}}
+             {:errors {:channels "nullable one or more map"}}
 
              {:channels "foobar"}
-             {:errors {:channels (str "value may be nil, or if non-nil, value must be an array. Each value must be a map. "
-                                      "The array cannot be empty.")}}
+             {:errors {:channels "nullable one or more map"}}
 
              {:channels ["abc"]}
-             {:errors {:channels (str "value may be nil, or if non-nil, value must be an array. Each value must be a map. "
-                                      "The array cannot be empty.")}}}]
+             {:errors {:channels "nullable one or more map"}}}]
       (testing (pr-str input)
-        (is (= expected-error
-               (mt/user-http-request :rasta :put 400 "pulse/1" input)))))))
+        (is (=? expected-error
+                (mt/user-http-request :rasta :put 400 "pulse/1" input)))))))
 
 (deftest update-test
   (testing "PUT /api/pulse/:id"
@@ -528,9 +523,8 @@
           ;; grant Permissions for only the *old* collection
           (perms/grant-collection-readwrite-permissions! (perms-group/all-users) collection)
           ;; now make an API call to move collections. Should fail
-          (is (schema= {:message (s/eq "You do not have curate permissions for this Collection.")
-                        s/Keyword s/Any}
-                       (mt/user-http-request :rasta :put 403 (str "pulse/" (u/the-id pulse)) {:collection_id (u/the-id new-collection)}))))))))
+          (is (=? {:message "You do not have curate permissions for this Collection."}
+                  (mt/user-http-request :rasta :put 403 (str "pulse/" (u/the-id pulse)) {:collection_id (u/the-id new-collection)}))))))))
 
 (deftest update-collection-position-test
   (testing "Can we change the Collection position of a Pulse?"
@@ -1095,17 +1089,17 @@
 
         (testing "If rendering a Pulse fails (e.g. because font registration failed) the endpoint should return the error message"
           (with-redefs [style/register-fonts-if-needed! (fn []
-                                                         (throw (ex-info "Can't register fonts!"
-                                                                         {}
-                                                                         (NullPointerException.))))]
+                                                          (throw (ex-info "Can't register fonts!"
+                                                                          {}
+                                                                          (NullPointerException.))))]
             (let [{{:strs [Content-Type]} :headers, :keys [body]} (preview 500)]
               (is (= "application/json; charset=utf-8"
                      Content-Type))
-              (is (schema= {:message  (s/eq "Can't register fonts!")
-                            :trace    s/Any
-                            :via      s/Any
-                            s/Keyword s/Any}
-                     body)))))))))
+              (is (malli= [:map
+                           [:message  [:= "Can't register fonts!"]]
+                           [:trace    :any]
+                           [:via      :any]]
+                          body)))))))))
 
 (deftest delete-subscription-test
   (testing "DELETE /api/pulse/:id/subscription"

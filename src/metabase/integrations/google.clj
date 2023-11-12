@@ -16,7 +16,6 @@
    [metabase.util.i18n :refer [deferred-tru trs tru]]
    [metabase.util.log :as log]
    [metabase.util.malli :as mu]
-   [schema.core :as s]
    [toucan2.core :as t2]))
 
 ;; Load EE implementation if available
@@ -29,6 +28,7 @@
 (defsetting google-auth-client-id
   (deferred-tru "Client ID for Google Sign-In.")
   :visibility :public
+  :audit      :getter
   :setter     (fn [client-id]
                 (if (seq client-id)
                   (let [trimmed-client-id (str/trim client-id)]
@@ -50,6 +50,7 @@
   (deferred-tru "Is Google Sign-in currently enabled?")
   :visibility :public
   :type       :boolean
+  :audit      :getter
   :getter     (fn []
                 (if-some [value (setting/get-value-of-type :boolean :google-auth-enabled)]
                   value
@@ -106,7 +107,7 @@
               {:status-code 401
                :errors  {:_error non-existant-account-message}}))))
 
-(s/defn ^:private google-auth-create-new-user!
+(mu/defn ^:private google-auth-create-new-user!
   [{:keys [email] :as new-user} :- user/NewUser]
   (check-autocreate-user-allowed-for-email email)
   ;; this will just give the user a random password; they can go reset it if they ever change their mind and want to

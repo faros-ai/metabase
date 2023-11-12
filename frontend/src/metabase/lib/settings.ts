@@ -1,9 +1,10 @@
 import _ from "underscore";
 import { t, ngettext, msgid } from "ttag";
+// eslint-disable-next-line no-restricted-imports -- deprecated usage
 import moment from "moment-timezone";
 
 import { parseTimestamp } from "metabase/lib/time";
-import MetabaseUtils from "metabase/lib/utils";
+import { numberToWord, compareVersions } from "metabase/lib/utils";
 import { getDocsUrlForVersion } from "metabase/selectors/settings";
 
 import type {
@@ -12,7 +13,7 @@ import type {
   Settings,
 } from "metabase-types/api";
 
-const n2w = (n: number) => MetabaseUtils.numberToWord(n);
+const n2w = (n: number) => numberToWord(n);
 
 const PASSWORD_COMPLEXITY_CLAUSES = {
   total: {
@@ -316,18 +317,12 @@ class MetabaseSettings {
   }
 
   newVersionAvailable() {
-    const result = MetabaseUtils.compareVersions(
-      this.currentVersion(),
-      this.latestVersion(),
-    );
+    const result = compareVersions(this.currentVersion(), this.latestVersion());
     return result != null && result < 0;
   }
 
   versionIsLatest() {
-    const result = MetabaseUtils.compareVersions(
-      this.currentVersion(),
-      this.latestVersion(),
-    );
+    const result = compareVersions(this.currentVersion(), this.latestVersion());
     return result != null && result >= 0;
   }
 

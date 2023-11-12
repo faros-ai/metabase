@@ -29,9 +29,7 @@
    [metabase.models.permissions-group :as perms-group]
    [metabase.test :as mt]
    [metabase.util :as u]
-   [schema.core :as s]
    [throttle.core :as throttle]
-   [toucan.db :as db]
    [toucan2.core :as t2]
    [toucan2.tools.with-temp :as t2.with-temp])
   (:import
@@ -48,8 +46,7 @@
 (defn- native-query-with-template-tag []
   {:database (mt/id)
    :type     :native
-   :native   {:query         (format "SELECT count(*) AS %s FROM venues [[WHERE id = {{venue_id}}]]"
-                                     ((db/quote-fn) "Count"))
+   :native   {:query         "SELECT count(*) AS Count FROM venues [[WHERE id = {{venue_id}}]]"
               :template-tags {"venue_id" {:name         "venue_id"
                                           :display-name "Venue ID"
                                           :type         :number
@@ -244,20 +241,18 @@
   (testing "JSON-encoded MBQL parameters passed as a query parameter should work (#17019)"
     (mt/with-temporary-setting-values [enable-public-sharing true]
       (with-temp-public-card [{uuid :public_uuid} {:dataset_query (native-query-with-template-tag)}]
-        (is (schema= {:status     (s/eq "completed")
-                      :json_query {:parameters (s/eq [{:id    "_VENUE_ID_"
-                                                       :name  "venue_id"
-                                                       :slug  "venue_id"
-                                                       :type  "number"
-                                                       :value 2}])
-                                   s/Keyword   s/Any}
-                      s/Keyword   s/Any}
-                     (client/client :get 202 (str "public/card/" uuid "/query")
-                                    :parameters (json/encode [{:id    "_VENUE_ID_"
-                                                               :name  "venue_id"
-                                                               :slug  "venue_id"
-                                                               :type  "number"
-                                                               :value 2}])))))
+        (is (=? {:status     "completed"
+                 :json_query {:parameters [{:id    "_VENUE_ID_"
+                                            :name  "venue_id"
+                                            :slug  "venue_id"
+                                            :type  "number"
+                                            :value 2}]}}
+                (client/client :get 202 (str "public/card/" uuid "/query")
+                               :parameters (json/encode [{:id    "_VENUE_ID_"
+                                                          :name  "venue_id"
+                                                          :slug  "venue_id"
+                                                          :type  "number"
+                                                          :value 2}])))))
 
       ;; see longer explanation in [[metabase.mbql.schema/parameter-types]]
       (testing "If the FE client is incorrectly passing in the parameter as a `:category` type, allow it for now"
@@ -270,15 +265,13 @@
                                                                                   :name         "foo"
                                                                                   :display-name "Filter"
                                                                                   :type         :text}}}}}]
-          (is (schema= {:status   (s/eq "completed")
-                        :data     {:rows     (s/eq [["456"]])
-                                   s/Keyword s/Any}
-                        s/Keyword s/Any}
-                       (client/client :get 202 (format "public/card/%s/query" uuid)
-                                     :parameters (json/encode [{:type   "category"
-                                                                      :value  "456"
-                                                                      :target ["variable" ["template-tag" "foo"]]
-                                                                      :id     "ed1fd39e-2e35-636f-ec44-8bf226cca5b0"}])))))))))
+          (is (=? {:status "completed"
+                   :data   {:rows [["456"]]}}
+                  (client/client :get 202 (format "public/card/%s/query" uuid)
+                                 :parameters (json/encode [{:type   "category"
+                                                            :value  "456"
+                                                            :target ["variable" ["template-tag" "foo"]]
+                                                            :id     "ed1fd39e-2e35-636f-ec44-8bf226cca5b0"}])))))))))
 
 (deftest execute-public-card-with-default-parameters-test
   (testing "GET /api/public/card/:uuid/query with parameters with default values"
@@ -288,8 +281,7 @@
                            :dataset_query
                            {:database (mt/id)
                             :type     :native
-                            :native   {:query         (format "SELECT count(*) AS %s FROM venues where {{venue_id}}"
-                                                              ((db/quote-fn) "Count"))
+                            :native   {:query         "SELECT count(*) AS Count FROM venues where {{venue_id}}"
                                        :template-tags {"venue_id" {:dimension    [:field (mt/id :venues :id) nil],
                                                                    :display-name "Venue ID",
                                                                    :id           "_VENUE_ID_",
@@ -299,20 +291,18 @@
                                                                    :type         :dimension,
                                                                    :widget-type  :id}}}}}
                           (shared-obj))]
-        (is (schema= {:status     (s/eq "completed")
-                      :json_query {:parameters (s/eq [{:id    "_VENUE_ID_"
-                                                       :name  "venue_id"
-                                                       :slug  "venue_id"
-                                                       :type  "number"
-                                                       :value 2}])
-                                   s/Keyword   s/Any}
-                      s/Keyword   s/Any}
-                     (client/client :get 202 (card-query-url card "")
-                                    :parameters (json/encode [{:id    "_VENUE_ID_"
-                                                               :name  "venue_id"
-                                                               :slug  "venue_id"
-                                                               :type  "number"
-                                                               :value 2}]))))
+        (is (=? {:status     "completed"
+                 :json_query {:parameters [{:id    "_VENUE_ID_"
+                                            :name  "venue_id"
+                                            :slug  "venue_id"
+                                            :type  "number"
+                                            :value 2}]}}
+                (client/client :get 202 (card-query-url card "")
+                               :parameters (json/encode [{:id    "_VENUE_ID_"
+                                                          :name  "venue_id"
+                                                          :slug  "venue_id"
+                                                          :type  "number"
+                                                          :value 2}]))))
         (testing "the default should apply if no param value is provided"
           (is (= [[1]]
                  (mt/rows (client/client :get 202 (card-query-url card "")
@@ -392,7 +382,7 @@
 
 (deftest make-sure-it-also-works-with-the-forwarded-url
   (mt/with-temporary-setting-values [enable-public-sharing true]
-    (t2.with-temp/with-temp [Card {uuid :public_uuid} (card-with-date-field-filter)]
+    (mt/with-temp! [Card {uuid :public_uuid} (card-with-date-field-filter)]
       ;; make sure the URL doesn't include /api/ at the beginning like it normally would
       (binding [client/*url-prefix* ""]
         (mt/with-temporary-setting-values [site-url (str "http://localhost:" (config/config-str :mb-jetty-port) client/*url-prefix*)]
@@ -438,25 +428,25 @@
 
 (defn- fetch-public-dashboard [{uuid :public_uuid}]
   (-> (client/client :get 200 (str "public/dashboard/" uuid))
-      (select-keys [:name :ordered_cards :ordered_tabs])
+      (select-keys [:name :dashcards :tabs])
       (update :name boolean)
-      (update :ordered_cards count)
-      (update :ordered_tabs count)))
+      (update :dashcards count)
+      (update :tabs count)))
 
 (deftest get-public-dashboard-test
   (testing "GET /api/public/dashboard/:uuid"
     (mt/with-temporary-setting-values [enable-public-sharing true]
       (with-temp-public-dashboard-and-card [dash card]
-        (is (= {:name true, :ordered_cards 1, :ordered_tabs 0}
+        (is (= {:name true, :dashcards 1, :tabs 0}
                (fetch-public-dashboard dash)))
         (testing "We shouldn't see Cards that have been archived"
           (t2/update! Card (u/the-id card) {:archived true})
-          (is (= {:name true, :ordered_cards 0, :ordered_tabs 0}
+          (is (= {:name true, :dashcards 0, :tabs 0}
                  (fetch-public-dashboard dash)))))
-      (testing "dashboard with tabs should return ordered_tabs"
+      (testing "dashboard with tabs should return tabs"
        (api.dashboard-test/with-simple-dashboard-with-tabs [{:keys [dashboard-id]}]
          (t2/update! :model/Dashboard :id dashboard-id (shared-obj))
-         (is (= {:name true, :ordered_cards 2, :ordered_tabs 2}
+         (is (= {:name true, :dashcards 2, :tabs 2}
                 (fetch-public-dashboard (t2/select-one :model/Dashboard :id dashboard-id)))))))))
 
 (deftest public-dashboard-with-implicit-action-only-expose-unhidden-fields
@@ -479,7 +469,7 @@
                                                      :action_id    action-id
                                                      :card_id      card-id}]
                 (testing "Dashcard should only have id and name params"
-                  (is (partial= {:ordered_cards [{:action {:parameters [{:id "id"} {:id "name"}]}}]}
+                  (is (partial= {:dashcards [{:action {:parameters [{:id "id"} {:id "name"}]}}]}
                                 (mt/user-http-request :crowberto :get 200 (format "public/dashboard/%s" dashboard-uuid)))))
                 (let [execute-path (format "public/dashboard/%s/dashcard/%s/execute" dashboard-uuid (:id dashcard))]
                   (testing "Prefetch should only return non-hidden fields"
@@ -504,7 +494,7 @@
                                             :action_id action-id
                                             :card_id model-id}]
               (let [public-action (-> (client/client :get 200 (format "public/dashboard/%s" (:public_uuid dash)))
-                                      :ordered_cards first :action)]
+                                      :dashcards first :action)]
                 (testing "hidden action fields should not be included in the response"
                   (is (partial= [:name] ; id is hidden
                                 (-> public-action :visualization_settings :fields keys))))
@@ -515,6 +505,39 @@
                        :visualization_settings
                        :parameters}
                      (set (keys public-action))))))))))))
+
+(deftest public-dashboard-param-link-to-a-field-without-full-field-values-test
+  (testing "GET /api/public/dashboard/:uuid"
+    (mt/with-temporary-setting-values [enable-public-sharing true]
+      (t2.with-temp/with-temp
+        [:model/Dashboard
+         {dashboard-id :id
+          uuid         :public_uuid}
+         {:name        "Test Dashboard"
+          :public_uuid (str (java.util.UUID/randomUUID))}
+
+         :model/Card
+         {card-id :id}
+         {:name "Dashboard Test Card"}
+
+         :model/DashboardCard
+         _
+         {:dashboard_id       dashboard-id
+          :card_id            card-id
+          :parameter_mappings [{:card_id      card-id
+                                :parameter_id "foo"
+                                :target       [:dimension
+                                               [:field (mt/id :venues :name) nil]]}]}]
+        (t2/delete! :model/FieldValues :field_id (mt/id :venues :name) :type :full)
+        (testing "Request triggers computation of field values if missing (#30218)"
+          (is (= {(mt/id :venues :name) {:values                ["20th Century Cafe"
+                                                                 "25°"
+                                                                 "33 Taps"]
+                                         :field_id              (mt/id :venues :name)
+                                         :human_readable_values []}}
+                 (let [response (:param_values (mt/user-http-request :rasta :get 200 (str "public/dashboard/" uuid)))]
+                   (into {} (for [[field-id m] response]
+                              [field-id (update m :values (partial take 3))]))))))))))
 
 ;;; --------------------------------- GET /api/public/dashboard/:uuid/card/:card-id ----------------------------------
 
@@ -560,22 +583,19 @@
                (mt/rows (client/client :get 202 (dashcard-url dash card dashcard)))))
 
         (testing "with parameters"
-          (is (schema= {:json_query {:parameters (s/eq [{:id      "_VENUE_ID_"
-                                                         :name    "Venue ID"
-                                                         :slug    "venue_id"
-                                                         :target  ["dimension" ["field" (mt/id :venues :id) nil]]
-                                                         :value   [10]
-                                                         :type    "id"}])
-                                     s/Keyword   s/Any}
-                        :data       {:rows     (s/eq [[1]])
-                                     s/Keyword s/Any}
-                        s/Keyword   s/Any}
-                       (client/client :get 202 (dashcard-url dash card dashcard)
-                                      :parameters (json/encode [{:name   "Venue ID"
-                                                                 :slug   :venue_id
-                                                                 :target [:dimension (mt/id :venues :id)]
-                                                                 :value  [10]
-                                                                 :id     "_VENUE_ID_"}])))))))))
+          (is (=? {:json_query {:parameters [{:id     "_VENUE_ID_"
+                                              :name   "Venue ID"
+                                              :slug   "venue_id"
+                                              :target ["dimension" ["field" (mt/id :venues :id) nil]]
+                                              :value  [10]
+                                              :type   "id"}]}
+                   :data       {:rows [[1]]}}
+                  (client/client :get 202 (dashcard-url dash card dashcard)
+                                 :parameters (json/encode [{:name   "Venue ID"
+                                                            :slug   :venue_id
+                                                            :target [:dimension (mt/id :venues :id)]
+                                                            :value  [10]
+                                                            :id     "_VENUE_ID_"}])))))))))
 
 (deftest execute-public-dashcard-with-default-parameters-test
   (testing "GET /api/public/dashboard/:uuid/card/:card-id with parameters with default values"
@@ -586,8 +606,7 @@
                              :dataset_query
                              {:database (mt/id)
                               :type     :native
-                              :native   {:query         (format "SELECT count(*) AS %s FROM venues where {{venue_id}}"
-                                                                ((db/quote-fn) "Count"))
+                              :native   {:query         "SELECT count(*) AS Count FROM venues where {{venue_id}}"
                                          :template-tags {"venue_id" {:dimension    [:field (mt/id :venues :id) nil]
                                                                      :display-name "Venue ID"
                                                                      :id           "_VENUE_ID_"
@@ -1485,9 +1504,8 @@
                           (apply client/client :get 202 (pivot-dashcard-url dash card dashcard) query-parameters))]
                   (testing "without parameters"
                     (let [result (results)]
-                      (is (schema= {:status   (s/eq "completed")
-                                    s/Keyword s/Any}
-                                   result))
+                      (is (=? {:status "completed"}
+                              result))
                       ;; [[metabase.api.public/transform-results]] should remove `row_count`
                       (testing "row_count isn't included in public endpoints"
                         (is (nil? (:row_count result))))
@@ -1504,9 +1522,8 @@
                                                                      :slug   :state
                                                                      :target [:dimension (mt/$ids $orders.user_id->people.state)]
                                                                      :value  ["CA" "WA"]}]))]
-                      (is (schema= {:status   (s/eq "completed")
-                                    s/Keyword s/Any}
-                                   result))
+                      (is (=? {:status "completed"}
+                              result))
                       (testing "row_count isn't included in public endpoints"
                         (is (nil? (:row_count result))))
                       (is (= 6 (count (get-in result [:data :cols]))))

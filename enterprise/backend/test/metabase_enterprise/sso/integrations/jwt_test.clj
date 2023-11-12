@@ -8,16 +8,18 @@
    [metabase-enterprise.sso.integrations.jwt :as mt.jwt]
    [metabase-enterprise.sso.integrations.saml-test :as saml-test]
    [metabase.config :as config]
+   [metabase.events.audit-log-test :as audit-log-test]
    [metabase.models.permissions-group :refer [PermissionsGroup]]
-   [metabase.models.permissions-group-membership :refer [PermissionsGroupMembership]]
+   [metabase.models.permissions-group-membership
+    :refer [PermissionsGroupMembership]]
    [metabase.models.user :refer [User]]
    [metabase.public-settings.premium-features :as premium-features]
-   [metabase.public-settings.premium-features-test :as premium-features-test]
+   [metabase.public-settings.premium-features-test
+    :as premium-features-test]
    [metabase.test :as mt]
    [metabase.test.fixtures :as fixtures]
    [metabase.util :as u]
-   [toucan2.core :as t2]
-   [toucan2.tools.with-temp :as t2.with-temp]))
+   [toucan2.core :as t2]))
 
 (use-fixtures :once (fixtures/initialize :test-users))
 
@@ -58,14 +60,15 @@
       ~@body)))
 
 (defmacro ^:private with-jwt-default-setup [& body]
-  `(disable-other-sso-types
-    (fn []
-      (with-sso-jwt-token
-        (saml-test/call-with-login-attributes-cleared!
-         (fn []
-           (call-with-default-jwt-config
-            (fn []
-              ~@body))))))))
+  `(mt/with-ensure-with-temp-no-transaction!
+     (disable-other-sso-types
+      (fn []
+        (with-sso-jwt-token
+          (saml-test/call-with-login-attributes-cleared!
+           (fn []
+             (call-with-default-jwt-config
+              (fn []
+                ~@body)))))))))
 
 (deftest sso-prereqs-test
   (with-sso-jwt-token
@@ -191,21 +194,27 @@
                                                                          :for        "the new user"}
                                                                         default-jwt-secret))]
             (is (saml-test/successful-login? response))
-            (testing "new user"
-              (is (= [{:email        "newuser@metabase.com"
-                       :first_name   "New"
-                       :is_qbnewb    true
-                       :is_superuser false
-                       :id           true
-                       :last_name    "User"
-                       :date_joined  true
-                       :common_name  "New User"}]
-                     (->> (mt/boolean-ids-and-timestamps (t2/select User :email "newuser@metabase.com"))
-                          (map #(dissoc % :last_login))))))
-            (testing "attributes"
-              (is (= {"more" "stuff"
-                      "for"  "the new user"}
-                     (t2/select-one-fn :login_attributes User :email "newuser@metabase.com"))))))))))
+            (let [new-user (t2/select-one User :email "newuser@metabase.com")]
+              (testing "new user"
+                (is (= {:email        "newuser@metabase.com"
+                        :first_name   "New"
+                        :is_qbnewb    true
+                        :is_superuser false
+                        :id           true
+                        :last_name    "User"
+                        :date_joined  true
+                        :common_name  "New User"}
+                       (-> (mt/boolean-ids-and-timestamps [new-user])
+                           first
+                           (dissoc :last_login)))))
+              (testing "User Invite Event is logged."
+                (is (= "newuser@metabase.com"
+                       (get-in (audit-log-test/latest-event :user-invited (:id new-user))
+                               [:details :email]))))
+              (testing "attributes"
+                (is (= {"more" "stuff"
+                        "for"  "the new user"}
+                       (t2/select-one-fn :login_attributes User :email "newuser@metabase.com")))))))))))
 
 (deftest update-account-test
   (testing "A new account with 'Unknown' name will be created for a new JWT user without a first or last name."
@@ -272,7 +281,7 @@
 (deftest login-sync-group-memberships-test
   (testing "login should sync group memberships if enabled"
     (with-jwt-default-setup
-      (t2.with-temp/with-temp [PermissionsGroup my-group {:name (str ::my-group)}]
+      (mt/with-temp [PermissionsGroup my-group {:name (str ::my-group)}]
         (mt/with-temporary-setting-values [jwt-group-sync       true
                                            jwt-group-mappings   {"my_group" [(u/the-id my-group)]}
                                            jwt-attribute-groups "GrOuPs"]

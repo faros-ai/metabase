@@ -24,7 +24,6 @@
    [metabase.util.malli.schema :as ms]
    [methodical.core :as methodical]
    [potemkin :as p]
-   [toucan.db :as db]
    [toucan2.core :as t2]
    [toucan2.protocols :as t2.protocols]
    [toucan2.realize :as t2.realize]))
@@ -44,7 +43,7 @@
 
 (def ^:private ^:const collection-slug-max-length
   "Maximum number of characters allowed in a Collection `slug`."
-  254)
+  510)
 
 (def Collection
   "Used to be the toucan1 model name defined using [[toucan.models/defmodel]], no2 it's a reference to the toucan2 model name.
@@ -67,23 +66,27 @@
   (derive ::mi/read-policy.full-perms-for-perms-set)
   (derive ::mi/write-policy.full-perms-for-perms-set))
 
+(defmethod mi/can-write? Collection
+  ([instance]
+   (mi/can-write? :model/Collection (:id instance)))
+  ([model pk]
+   (if (= pk (:id (perms/default-audit-collection)))
+     false
+     (mi/current-user-has-full-permissions? :write model pk))))
+
+(defmethod mi/can-read? Collection
+  ([instance]
+   (perms/can-read-audit-helper :model/Collection instance))
+  ([_ pk]
+   (mi/can-read? (t2/select-one :model/Collection :id pk))))
+
 (def AuthorityLevel
   "Malli Schema for valid collection authority levels."
   [:enum "official"])
 
 ;;; +----------------------------------------------------------------------------------------------------------------+
-;;; |                                         Slug & Hex Color & Validation                                          |
+;;; |                                              Slug Validation                                                   |
 ;;; +----------------------------------------------------------------------------------------------------------------+
-
-(def ^:const ^java.util.regex.Pattern hex-color-regex
-  "Regex for a valid value of `:color`, a 7-character hex string including the preceding hash sign."
-  #"^#[0-9A-Fa-f]{6}$")
-
-(defn- assert-valid-hex-color [^String hex-color]
-  (when (or (not (string? hex-color))
-            (not (re-matches hex-color-regex hex-color)))
-    (throw (ex-info (tru "Invalid color")
-                    {:status-code 400, :errors {:color (tru "must be a valid 6-character hex color code")}}))))
 
 (defn- slugify [collection-name]
   ;; double-check that someone isn't trying to use a blank string as the collection name
@@ -112,7 +115,7 @@
 ;; assembling IDs into a location path, and so forth.
 
 (defn- unchecked-location-path->ids
-  "*** Don't use this directly! Instead use `location-path->ids`. ***
+  "*** Don't use this directly! Instead use [[location-path->ids]]. ***
 
   'Explode' a `location-path` into a sequence of Collection IDs, and parse them as integers. THIS DOES NOT VALIDATE
   THAT THE PATH OR RESULTS ARE VALID. This unchecked version exists solely to power the other version below."
@@ -572,6 +575,9 @@
   ;; Make sure we're not trying to archive the Root Collection...
   (when (collection.root/is-root-collection? collection)
     (throw (Exception. (tru "You cannot archive the Root Collection."))))
+  ;; Make sure we're not trying to archive the Custom Reports Collection...
+  (when (= (perms/default-custom-reports-collection) collection)
+    (throw (Exception. (tru "You cannot archive the Custom Reports Collection."))))
   ;; also make sure we're not trying to archive a PERSONAL Collection
   (when (t2/exists? Collection :id (u/the-id collection), :personal_owner_id [:not= nil])
     (throw (Exception. (tru "You cannot archive a Personal Collection."))))
@@ -690,16 +696,15 @@
     ;; Then see if the root-level ancestor is a Personal Collection (Personal Collections can only got in the Root
     ;; Collection.)
     (t2/exists? Collection
-      :id                (first (location-path->ids (:location collection)))
-      :personal_owner_id [:not= nil]))))
+                :id                (first (location-path->ids (:location collection)))
+                :personal_owner_id [:not= nil]))))
 
 ;;; ----------------------------------------------------- INSERT -----------------------------------------------------
 
 (t2/define-before-insert :model/Collection
-  [{collection-name :name, color :color, :as collection}]
+  [{collection-name :name, :as collection}]
   (assert-valid-location collection)
   (assert-valid-namespace (merge {:namespace nil} collection))
-  (assert-valid-hex-color color)
   (assoc collection :slug (slugify collection-name)))
 
 (defn- copy-collection-permissions!
@@ -865,7 +870,6 @@
   [collection]
   (let [collection-before-updates (t2/instance :model/Collection (t2/original collection))
         {collection-name :name
-         color           :color
          :as collection-updates}  (or (t2/changes collection) {})]
     ;; VARIOUS CHECKS BEFORE DOING ANYTHING:
     ;; (1) if this is a personal Collection, check that the 'propsed' changes are allowed
@@ -883,9 +887,6 @@
     ;; or vice versa, we need to grant/revoke permissions as appropriate (see above for more details)
     (when (api/column-will-change? :location collection-before-updates collection-updates)
       (update-perms-when-moving-across-personal-boundry! collection-before-updates collection-updates))
-    ;; (5) make sure hex color is valid
-    (when (api/column-will-change? :color collection-before-updates collection-updates)
-     (assert-valid-hex-color color))
     ;; OK, AT THIS POINT THE CHANGES ARE VALIDATED. NOW START ISSUING UPDATES
     ;; (1) archive or unarchive as appropriate
     (maybe-archive-or-unarchive! collection-before-updates collection-updates)
@@ -952,8 +953,8 @@
 
 (defmethod serdes/extract-query "Collection" [_model {:keys [collection-set]}]
   (if (seq collection-set)
-    (db/select-reducible Collection :id [:in collection-set])
-    (db/select-reducible Collection :personal_owner_id nil)))
+    (t2/reducible-select Collection :id [:in collection-set])
+    (t2/reducible-select Collection :personal_owner_id nil)))
 
 (defmethod serdes/extract-one "Collection"
   ;; Transform :location (which uses database IDs) into a portable :parent_id with the parent's entity ID.
@@ -1108,9 +1109,7 @@
       (try
         (first (t2/insert-returning-instances! Collection
                                                {:name              (user->personal-collection-name user-or-id :site)
-                                                :personal_owner_id (u/the-id user-or-id)
-                                                ;; a nice slate blue color
-                                                :color             "#31698A"}))
+                                                :personal_owner_id (u/the-id user-or-id)}))
         ;; if an Exception was thrown why trying to create the Personal Collection, we can assume it was a race
         ;; condition where some other thread created it in the meantime; try one last time to fetch it
         (catch Throwable e
@@ -1160,6 +1159,29 @@
       (for [user users]
         (assoc user :personal_collection_id (or (user-id->collection-id (u/the-id user))
                                                 (user->personal-collection-id (u/the-id user))))))))
+
+(mi/define-batched-hydration-method collection-is-personal
+  :is_personal
+  "Efficiently hydrate the `:is_personal` property of a sequence of Collections.
+  `true` means the collection is or nested in a personal collection."
+  [collections]
+  (if (= 1 (count collections))
+    (let [collection (first collections)]
+      (if (some? collection)
+        [(assoc collection :is_personal (is-personal-collection-or-descendant-of-one? collection))]
+        ;; root collection is nil
+        [collection]))
+    (let [personal-collection-ids (t2/select-pks-set :model/collection :personal_owner_id [:not= nil])
+          location-is-personal    (fn [location]
+                                    (boolean
+                                     (and (string? location)
+                                          (some #(str/starts-with? location (format "/%d/" %)) personal-collection-ids))))]
+      (map (fn [{:keys [location personal_owner_id] :as coll}]
+             (if (some? coll)
+               (assoc coll :is_personal (or (some? personal_owner_id)
+                                            (location-is-personal location)))
+               nil))
+           collections))))
 
 (defmulti allowed-namespaces
   "Set of Collection namespaces (as keywords) that instances of this model are allowed to go in. By default, only the
@@ -1272,6 +1294,8 @@
        ([m]
         (->> (vals m)
              (map #(update % :children ->tree))
-             (sort-by (fn [{coll-name :name, coll-id :id}]
-                        [((fnil u/lower-case-en "") coll-name) coll-id])))))
+             (sort-by (fn [{coll-type :type, coll-name :name, coll-id :id}]
+                        ;; coll-type is `nil` or "instance-analytics"
+                        ;; nil sorts first, so we get instance-analytics at the end, which is what we want
+                        [coll-type ((fnil u/lower-case-en "") coll-name) coll-id])))))
      (annotate-collections coll-type-ids collections))))

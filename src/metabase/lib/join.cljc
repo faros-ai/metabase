@@ -179,7 +179,9 @@
    (when source-table
      (:display-name (lib.metadata/table query source-table)))
    (when source-card
-     (lib.card/fallback-display-name source-card))
+     (if-let [card-metadata (lib.metadata/card query source-card)]
+       (lib.metadata.calculation/display-name query 0 card-metadata)
+       (lib.card/fallback-display-name source-card)))
    (i18n/tru "Native Query")))
 
 (defmethod lib.metadata.calculation/display-info-method :mbql/join
@@ -379,12 +381,7 @@
 
 (defn- select-home-column
   [home-cols cond-fields]
-  ;; cond-fields can have duplicates, which breaks [[lib.equality/find-closest-matches-for-refs]] and friends.
-  ;; So we look them up one at a time.
-  (let [cond-home-cols (for [field cond-fields
-                             :let [home-col (lib.equality/closest-matching-metadata field home-cols)]
-                             :when home-col]
-                         home-col)]
+  (let [cond-home-cols (keep #(lib.equality/find-matching-column % home-cols) cond-fields)]
     ;; first choice: the leftmost FK or PK in the condition referring to a home column
     (or (m/find-first (some-fn lib.types.isa/foreign-key? lib.types.isa/primary-key?) cond-home-cols)
         ;; otherwise the leftmost home column in the condition
@@ -435,7 +432,7 @@
   (mbql.u.match/replace form
     (field :guard (fn [field-clause]
                     (and (lib.util/field-clause? field-clause)
-                         (boolean (lib.equality/closest-matching-metadata query stage-number field-clause join-cols)))))
+                         (boolean (lib.equality/find-matching-column query stage-number field-clause join-cols)))))
     (with-join-alias field join-alias)))
 
 (defn- add-alias-to-condition
@@ -453,7 +450,7 @@
         (cond
           ;; no sides obviously belong to joined
           (not (or lhs-alias rhs-alias))
-          (if (lib.equality/closest-matching-metadata query stage-number rhs home-cols)
+          (if (lib.equality/find-matching-column query stage-number rhs home-cols)
             [op op-opts (with-join-alias lhs join-alias) rhs]
             [op op-opts lhs (with-join-alias rhs join-alias)])
 
@@ -463,8 +460,8 @@
           (and (= lhs-alias join-alias) (= rhs-alias join-alias))
           (let [bare-lhs (lib.options/update-options lhs dissoc :join-alias)
                 bare-rhs (lib.options/update-options rhs dissoc :join-alias)]
-            (if (and (nil? (lib.equality/closest-matching-metadata query stage-number bare-lhs home-cols))
-                     (lib.equality/closest-matching-metadata query stage-number bare-rhs home-cols))
+            (if (and (nil? (lib.equality/find-matching-column query stage-number bare-lhs home-cols))
+                     (lib.equality/find-matching-column query stage-number bare-rhs home-cols))
               [op op-opts lhs bare-rhs]
               [op op-opts bare-lhs rhs]))
 
@@ -732,7 +729,11 @@
                              (lib.join.util/current-join-alias join-or-joinable))
          rhs-column-or-nil (or rhs-column-or-nil
                                (when (join? join-or-joinable)
-                                 (standard-join-condition-rhs (first (join-conditions join-or-joinable)))))]
+                                 (standard-join-condition-rhs (first (join-conditions join-or-joinable)))))
+         rhs-column-or-nil (when rhs-column-or-nil
+                             (cond-> rhs-column-or-nil
+                               ;; Drop the :join-alias from the RHS if the joinable doesn't have one either.
+                               (not join-alias) (lib.options/update-options dissoc :join-alias)))]
      (->> (lib.metadata.calculation/visible-columns query stage-number joinable {:include-implicitly-joinable? false})
           (map (fn [col]
                  (cond-> (assoc col :lib/source :source/joins)
@@ -759,18 +760,26 @@
   "Given something `x` (e.g. a Table metadata) find the PK column."
   [query        :- ::lib.schema/query
    stage-number :- :int
-   x]
+   x
+   options]
   (m/find-first lib.types.isa/primary-key?
-                (lib.metadata.calculation/visible-columns query stage-number x)))
+                (lib.metadata.calculation/visible-columns query stage-number x options)))
 
 (mu/defn ^:private fk-column-for-pk-in :- [:maybe lib.metadata/ColumnMetadata]
   [pk-col          :- [:maybe lib.metadata/ColumnMetadata]
    visible-columns :- [:maybe [:sequential lib.metadata/ColumnMetadata]]]
   (when-let [pk-id (:id pk-col)]
-    (m/find-first (fn [{:keys [fk-target-field-id], :as col}]
-                    (and (lib.types.isa/foreign-key? col)
-                         (= fk-target-field-id pk-id)))
-                  visible-columns)))
+    (let [candidates (filter (fn [{:keys [fk-target-field-id], :as col}]
+                               (and (lib.types.isa/foreign-key? col)
+                                    (= fk-target-field-id pk-id)))
+                             visible-columns)
+          primary (first candidates)]
+      (if (some #(= (:id %) (:id primary)) (rest candidates))
+        (when (not-any? #(= (:lib/desired-column-alias %) (:lib/desired-column-alias primary)) (rest candidates))
+          ;; there are multiple candidates but :lib/desired-column-alias disambiguates them,
+          ;; so reference by name
+          (dissoc primary :id))
+        primary))))
 
 (mu/defn ^:private fk-column-for :- [:maybe lib.metadata/ColumnMetadata]
   "Given a query stage find an FK column that points to the PK `pk-col`."
@@ -792,14 +801,17 @@
   ([query         :- ::lib.schema/query
     stage-number  :- :int
     joinable]
-   (letfn [(filter-clause [x y]
-             (lib.filter/filter-clause (lib.filter.operator/operator-def :=) x y))]
-     (or (when-let [pk-col (pk-column query stage-number joinable)]
-           (when-let [fk-col (fk-column-for query stage-number pk-col)]
-             (filter-clause fk-col pk-col)))
-         (when-let [pk-col (pk-column query stage-number (lib.util/query-stage query stage-number))]
-           (when-let [fk-col (fk-column-for-pk-in pk-col (lib.metadata.calculation/visible-columns query stage-number joinable))]
-             (filter-clause pk-col fk-col)))))))
+   (let [joinable-col-options {:include-implicitly-joinable? false
+                               :include-implicitly-joinable-for-source-card? false}]
+     (letfn [(filter-clause [x y]
+               (lib.filter/filter-clause (lib.filter.operator/operator-def :=) x y))]
+       (or (when-let [pk-col (pk-column query stage-number joinable joinable-col-options)]
+             (when-let [fk-col (fk-column-for query stage-number pk-col)]
+               (filter-clause fk-col pk-col)))
+           (when-let [pk-col (pk-column query stage-number (lib.util/query-stage query stage-number) nil)]
+             (when-let [fk-col (fk-column-for-pk-in pk-col (lib.metadata.calculation/visible-columns
+                                                            query stage-number joinable joinable-col-options))]
+               (filter-clause pk-col fk-col))))))))
 
 (defn- add-join-alias-to-joinable-columns [cols a-join]
   (let [join-alias     (lib.join.util/current-join-alias a-join)

@@ -20,6 +20,10 @@ import {
 
 describe("scenarios > dashboard > filters > SQL > text/category", () => {
   beforeEach(() => {
+    cy.intercept("POST", "/api/dashboard/*/dashcard/*/card/*/query").as(
+      "dashcardQuery",
+    );
+
     restore();
     cy.signInAsAdmin();
 
@@ -57,7 +61,7 @@ describe("scenarios > dashboard > filters > SQL > text/category", () => {
         });
 
         clearFilterWidget(index);
-        cy.wait("@dashcardQuery2");
+        cy.wait("@dashcardQuery");
       },
     );
   });
@@ -155,8 +159,8 @@ describe("scenarios > dashboard > filters > SQL > number", () => {
       questionDetails,
       dashboardDetails,
     }).then(({ body: { id, card_id, dashboard_id } }) => {
-      cy.request("PUT", `/api/dashboard/${dashboard_id}/cards`, {
-        cards: [
+      cy.request("PUT", `/api/dashboard/${dashboard_id}`, {
+        dashcards: [
           {
             id,
             card_id,

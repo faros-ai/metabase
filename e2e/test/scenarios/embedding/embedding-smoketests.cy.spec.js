@@ -184,6 +184,12 @@ describe("scenarios > embedding > smoke tests", { tags: "@OSS" }, () => {
           "Enter the origins for the websites or web apps where you want to allow embedding, separated by a space. Here are the exact specifications for what can be entered.",
         ).should("not.exist");
         cy.findByPlaceholderText("https://*.example.com").should("not.exist");
+
+        cy.findByTestId("session-cookie-samesite-setting").should("not.exist");
+        cy.contains(
+          "Determines whether or not cookies are allowed to be sent on cross-site requests. You’ll likely need to change this to None if your embedding application is hosted under a different domain than Metabase. Otherwise, leave it set to Lax, as it's more secure.",
+        ).should("not.exist");
+        cy.findByDisplayValue("Lax (default)").should("not.exist");
       });
     });
 
@@ -203,13 +209,19 @@ describe("scenarios > embedding > smoke tests", { tags: "@OSS" }, () => {
   });
 
   context("embedding enabled", () => {
+    const ids = {
+      question: ORDERS_QUESTION_ID,
+      dashboard: ORDERS_DASHBOARD_ID,
+    };
     ["question", "dashboard"].forEach(object => {
       it(`should be able to publish/embed and then unpublish a ${object} without filters`, () => {
         const embeddableObject = object === "question" ? "card" : "dashboard";
         const objectName =
           object === "question" ? "Orders" : "Orders in a dashboard";
 
-        cy.intercept("PUT", `/api/${embeddableObject}/1`).as("embedObject");
+        cy.intercept("PUT", `/api/${embeddableObject}/${ids[object]}`).as(
+          "embedObject",
+        );
         cy.intercept("GET", `/api/${embeddableObject}/embeddable`).as(
           "currentlyEmbeddedObject",
         );

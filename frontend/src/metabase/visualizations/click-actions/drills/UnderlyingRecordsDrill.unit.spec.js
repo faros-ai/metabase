@@ -1,4 +1,5 @@
 import { assocIn } from "icepick";
+// eslint-disable-next-line no-restricted-imports -- deprecated usage
 import moment from "moment-timezone";
 import { createMockMetadata } from "__support__/metadata";
 import {
@@ -41,7 +42,11 @@ describe("UnderlyingRecordsDrill", () => {
       "source-table": ORDERS_ID,
       filter: [
         "=",
-        ["field", ORDERS.CREATED_AT, { "temporal-unit": "month" }],
+        [
+          "field",
+          ORDERS.CREATED_AT,
+          { "temporal-unit": "month", "base-type": "type/DateTime" },
+        ],
         value,
       ],
     });
@@ -56,7 +61,7 @@ describe("UnderlyingRecordsDrill", () => {
       .breakout([
         "field",
         ORDERS.CREATED_AT,
-        { "temporal-unit": "day-of-week" },
+        { "temporal-unit": "day-of-week", "base-type": "type/DateTime" },
       ]);
 
     const actions = UnderlyingRecordsDrill(getActionProps(query, value));
@@ -77,7 +82,11 @@ describe("UnderlyingRecordsDrill", () => {
       "source-table": ORDERS_ID,
       filter: [
         "=",
-        ["field", ORDERS.CREATED_AT, { "temporal-unit": "day-of-week" }],
+        [
+          "field",
+          ORDERS.CREATED_AT,
+          { "temporal-unit": "day-of-week", "base-type": "type/DateTime" },
+        ],
         null,
       ],
     });
@@ -90,8 +99,12 @@ describe("UnderlyingRecordsDrill", () => {
       "source-table": PEOPLE_ID,
       condition: [
         "=",
-        ["field", ORDERS.USER_ID, null],
-        ["field", PEOPLE.ID, { "join-alias": "User" }],
+        ["field", ORDERS.USER_ID, { "base-type": "type/BigInteger" }],
+        [
+          "field",
+          PEOPLE.ID,
+          { "join-alias": "User", "base-type": "type/BigInteger" },
+        ],
       ],
     };
     const query = ordersTable
@@ -107,7 +120,15 @@ describe("UnderlyingRecordsDrill", () => {
     expect(q.query().query()).toEqual({
       "source-table": ORDERS_ID,
       joins: [join],
-      filter: ["=", ["field", PEOPLE.STATE, { "join-alias": "User" }], "CA"],
+      filter: [
+        "=",
+        [
+          "field",
+          PEOPLE.STATE,
+          { "join-alias": "User", "base-type": "type/Text" },
+        ],
+        "CA",
+      ],
     });
     expect(q.display()).toEqual("table");
   });
@@ -132,7 +153,13 @@ describe("UnderlyingRecordsDrill", () => {
       "source-query": {
         "source-table": ORDERS_ID,
         aggregation: [["count"]],
-        breakout: [["field", PEOPLE.STATE, { "source-field": ORDERS.USER_ID }]],
+        breakout: [
+          [
+            "field",
+            PEOPLE.STATE,
+            { "source-field": ORDERS.USER_ID, "base-type": "type/Text" },
+          ],
+        ],
       },
     });
     expect(q.display()).toEqual("table");
@@ -158,10 +185,14 @@ describe("UnderlyingRecordsDrill", () => {
         "and",
         [
           "=",
-          ["field", PEOPLE.STATE, { "source-field": ORDERS.USER_ID }],
+          [
+            "field",
+            PEOPLE.STATE,
+            { "source-field": ORDERS.USER_ID, "base-type": "type/Text" },
+          ],
           "CA",
         ],
-        [">", ["field", ORDERS.TOTAL, null], 42],
+        [">", ["field", ORDERS.TOTAL, { "base-type": "type/Float" }], 42],
       ],
       "source-table": ORDERS_ID,
     });

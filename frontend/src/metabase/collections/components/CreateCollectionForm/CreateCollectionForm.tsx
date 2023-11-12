@@ -6,15 +6,14 @@ import { connect } from "react-redux";
 import { withRouter } from "react-router";
 
 import Button from "metabase/core/components/Button";
-import Form from "metabase/core/components/Form";
 import FormFooter from "metabase/core/components/FormFooter";
-import FormProvider from "metabase/core/components/FormProvider";
+import { Form, FormProvider } from "metabase/forms";
 import FormInput from "metabase/core/components/FormInput";
 import FormTextArea from "metabase/core/components/FormTextArea";
 import FormSubmitButton from "metabase/core/components/FormSubmitButton";
 import FormErrorMessage from "metabase/core/components/FormErrorMessage";
 
-import * as Errors from "metabase/core/utils/errors";
+import * as Errors from "metabase/lib/errors";
 
 import { color } from "metabase/lib/colors";
 
@@ -27,6 +26,7 @@ import FormCollectionPicker from "metabase/collections/containers/FormCollection
 import type { Collection } from "metabase-types/api";
 import type { State } from "metabase-types/store";
 
+import type { FilterItemsInPersonalCollection } from "metabase/containers/ItemPicker";
 import FormAuthorityLevelFieldContainer from "../../containers/FormAuthorityLevelFieldContainer";
 
 const COLLECTION_SCHEMA = Yup.object({
@@ -53,6 +53,7 @@ export interface CreateCollectionFormOwnProps {
   collectionId?: Collection["id"]; // can be used by `getInitialCollectionId`
   onCreate?: (collection: Collection) => void;
   onCancel?: () => void;
+  filterPersonalCollections?: FilterItemsInPersonalCollection;
 }
 
 interface CreateCollectionFormStateProps {
@@ -90,6 +91,7 @@ function CreateCollectionForm({
   handleCreateCollection,
   onCreate,
   onCancel,
+  filterPersonalCollections,
 }: Props) {
   const initialValues = useMemo(
     () => ({
@@ -132,6 +134,7 @@ function CreateCollectionForm({
           <FormCollectionPicker
             name="parent_id"
             title={t`Collection it's saved in`}
+            filterPersonalCollections={filterPersonalCollections}
           />
           <FormAuthorityLevelFieldContainer
             collectionParentId={values.parent_id}

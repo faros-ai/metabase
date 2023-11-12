@@ -7,7 +7,7 @@ import {
   describeEE,
   navigationSidebar,
   getDashboardCard,
-  createTextCard,
+  getTextCardDetails,
   closeNavigationSidebar,
   updateDashboardCards,
 } from "e2e/support/helpers";
@@ -214,7 +214,7 @@ describeEE("scenarios > embedding > full app", () => {
         // eslint-disable-next-line no-unscoped-text-selectors -- deprecated usage
         cy.findByText("New").click();
         popover().findByText("Question").click();
-        popover().findByText("Sample Database").click();
+        popover().findByText("Raw Data").click();
         popover().findByText("Orders").click();
       });
 
@@ -314,7 +314,7 @@ describeEE("scenarios > embedding > full app", () => {
 
     it("should preserve embedding options with click behavior (metabase#24756)", () => {
       addLinkClickBehavior({
-        dashboardId: 1,
+        dashboardId: ORDERS_DASHBOARD_ID,
         linkTemplate: "/question/" + ORDERS_QUESTION_ID,
       });
       visitDashboardUrl({
@@ -347,7 +347,7 @@ describeEE("scenarios > embedding > full app", () => {
       };
       cy.createDashboard(dashboardDetails).then(
         ({ body: { id: dashboardId } }) => {
-          const card = createTextCard({
+          const card = getTextCardDetails({
             col: 0,
             row: 0,
             size_x: 6,
@@ -444,8 +444,8 @@ const visitXrayDashboardUrl = urlOptions => {
 
 const addLinkClickBehavior = ({ dashboardId, linkTemplate }) => {
   cy.request("GET", `/api/dashboard/${dashboardId}`).then(({ body }) => {
-    cy.request("PUT", `/api/dashboard/${dashboardId}/cards`, {
-      cards: body.ordered_cards.map(card => ({
+    cy.request("PUT", `/api/dashboard/${dashboardId}`, {
+      dashcards: body.dashcards.map(card => ({
         ...card,
         visualization_settings: {
           click_behavior: {

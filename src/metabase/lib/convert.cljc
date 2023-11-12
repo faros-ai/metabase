@@ -217,6 +217,7 @@
     (-> (lib.util/pipeline m)
         (update :stages (fn [stages]
                           (mapv ->pMBQL stages)))
+        (assoc :lib.convert/converted? true)
         clean)
     (update-vals m ->pMBQL)))
 
@@ -499,7 +500,7 @@
                         :native
                         :query)]
       (merge (-> base
-                 (dissoc :stages :parameters)
+                 (dissoc :stages :parameters :lib.convert/converted?)
                  (update-vals ->legacy-MBQL))
              (cond-> {:type query-type query-type inner-query}
                (seq parameters) (assoc :parameters parameters))))
@@ -532,3 +533,30 @@
                             :legacy-ref               legacy-ref
                             :legacy-index->pMBQL-uuid *legacy-index->pMBQL-uuid*}
                            e))))))))
+
+(defn- from-json [query-fragment]
+  #?(:cljs (if (object? query-fragment)
+             (js->clj query-fragment :keywordize-keys true)
+             query-fragment)
+     :clj  query-fragment))
+
+(defn js-legacy-query->pMBQL
+  "Given a JSON-formatted legacy MBQL query, transform it to pMBQL.
+
+  If you have only the inner query map (`{:source-table 2 ...}` or similar), call [[js-legacy-inner-query->pMBQL]]
+  instead."
+  [query-map]
+  (-> query-map
+      from-json
+      (u/assoc-default :type :query)
+      mbql.normalize/normalize
+      ->pMBQL))
+
+(defn js-legacy-inner-query->pMBQL
+  "Given a JSON-formatted *inner* query, transform it to pMBQL.
+
+  If you have a complete legacy query (`{:type :query, :query {...}}` or similar), call [[js-legacy-query->pMBQL]]
+  instead."
+  [inner-query]
+  (js-legacy-query->pMBQL {:type  :query
+                           :query (from-json inner-query)}))

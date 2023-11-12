@@ -72,6 +72,10 @@ const defaultConfig = {
      **                           TASKS                                **
      ********************************************************************/
     on("task", {
+      log(...messages) {
+        console.log(...messages);
+        return null; // tasks must have a return value
+      },
       ...dbTasks,
       ...verifyDownloadTasks,
       removeDirectory,
@@ -128,7 +132,7 @@ const mainConfig = {
     json: true,
   },
   retries: {
-    runMode: 4,
+    runMode: 2,
     openMode: 0,
   },
 };

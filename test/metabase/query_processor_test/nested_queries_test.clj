@@ -5,9 +5,8 @@
    [clojure.string :as str]
    [clojure.test :refer :all]
    [honey.sql :as sql]
-   [java-time :as t]
+   [java-time.api :as t]
    [medley.core :as m]
-   [metabase.db.query :as mdb.query]
    [metabase.driver :as driver]
    [metabase.driver.sql.query-processor-test-util :as sql.qp-test-util]
    [metabase.lib.metadata :as lib.metadata]
@@ -27,7 +26,6 @@
    [metabase.query-processor.test-util :as qp.test-util]
    [metabase.test :as mt]
    [metabase.util :as u]
-   [schema.core :as s]
    [toucan2.core :as t2]
    [toucan2.tools.with-temp :as t2.with-temp]))
 
@@ -306,18 +304,17 @@
               (qp.test-util/rows-and-cols
                (mt/format-rows-by [int int]
                  (qp/process-query
-                  (query-with-source-card 1
-                    (mt/$ids venues
-                      {:aggregation [:count]
-                       :breakout    [*price]})))))))]
-      (is (= (breakout-results :has-source-metadata? false :native-source? true)
-             (run-native-query native-sub-query))
+                  (query-with-source-card 1 (mt/$ids venues
+                                              {:aggregation [:count]
+                                               :breakout    [*price]})))))))]
+      (is (=? (breakout-results :has-source-metadata? false :native-source? true)
+              (run-native-query native-sub-query))
           "make sure `card__id`-style queries work with native source queries as well")
-      (is (= (breakout-results :has-source-metadata? false :native-source? true)
-             (run-native-query (str native-sub-query " -- small comment here")))
+      (is (=? (breakout-results :has-source-metadata? false :native-source? true)
+              (run-native-query (str native-sub-query " -- small comment here")))
           "Ensure trailing comments are trimmed and don't cause a wrapping SQL query to fail")
-      (is (= (breakout-results :has-source-metadata? false :native-source? true)
-             (run-native-query (str native-sub-query " -- small comment here\n")))
+      (is (=? (breakout-results :has-source-metadata? false :native-source? true)
+              (run-native-query (str native-sub-query " -- small comment here\n")))
           "Ensure trailing comments followed by a newline are trimmed and don't cause a wrapping SQL query to fail"))))
 
 (deftest ^:parallel filter-by-field-literal-test
@@ -416,7 +413,7 @@
                                   :breakout     [$price]
                                   :order-by     [[[:aggregation 0] :descending]]}
                    :aggregation  [[:avg *stddev/Integer]]}))
-               (update :query #(str/split-lines (mdb.query/format-sql % :h2))))))))
+               (update :query #(str/split-lines (driver/prettify-native-form :h2 %))))))))
 
 (deftest ^:parallel handle-incorrect-field-forms-gracefully-test
   (testing "make sure that we handle [:field [:field <name> ...]] forms gracefully, despite that not making any sense"
@@ -524,18 +521,17 @@
                                       [{:database (mt/id)
                                         :type     :native
                                         :native   {:query "SELECT * FROM CHECKINS"}}])
-      (is (= [(-> (qp.test-util/breakout-col (qp.test-util/field-literal-col :checkins :date))
-                  (assoc :field_ref    [:field "DATE" {:base-type :type/Date, :temporal-unit :day}]
-                         :unit         :day)
-                  (dissoc :semantic_type :coercion_strategy :table_id
-                          :id :settings :fingerprint :nfc_path))
-              (qp.test-util/aggregate-col :count)]
-             (mt/cols
-              (qp/process-query
-               (query-with-source-card 1
-                 (mt/$ids checkins
-                   {:aggregation [[:count]]
-                    :breakout    [!day.*date]})))))))))
+      (is (=? [(-> (qp.test-util/breakout-col (qp.test-util/field-literal-col :checkins :date))
+                   (assoc :field_ref    [:field "DATE" {:base-type :type/Date, :temporal-unit :day}]
+                          :unit         :day)
+                   (dissoc :semantic_type :coercion_strategy :table_id
+                           :id :settings :fingerprint :nfc_path))
+               (qp.test-util/aggregate-col :count)]
+              (mt/cols
+               (qp/process-query
+                (query-with-source-card 1 (mt/$ids checkins
+                                            {:aggregation [[:count]]
+                                             :breakout    [!day.*date]})))))))))
 
 (deftest ^:parallel breakout-year-test
   ;; TODO make this work for other drivers supporting :nested-queries
@@ -551,16 +547,16 @@
                                                    :data :cols)]
                                        (-> (into {} col)
                                            (assoc :source :fields)
-                                           (dissoc :position)))]
+                                           (dissoc :position :aggregation_index)))]
             ;; since the bucketing is happening in the source query rather than at this level, the field ref should
             ;; return temporal unit `:default` rather than the upstream bucketing unit. You wouldn't want to re-apply
             ;; the `:year` bucketing if you used this query in another subsequent query, so the field ref doesn't
             ;; include the unit; however `:unit` is still `:year` so the frontend can use the correct formatting to
             ;; display values of the column.
-            (is (= [(assoc date-col  :field_ref [:field (mt/id :checkins :date) {:temporal-unit :default}], :unit :year)
-                    (assoc count-col :field_ref [:field "count" {:base-type :type/Integer}])]
-                   (mt/cols
-                    (qp/process-query (query-with-source-card 1)))))))))))
+            (is (=? [(assoc date-col  :field_ref [:field (mt/id :checkins :date) {:temporal-unit :default}], :unit :year)
+                     (assoc count-col :field_ref [:field "count" {:base-type :type/Integer}])]
+                    (mt/cols
+                     (qp/process-query (query-with-source-card 1)))))))))))
 
 (defn- completed-status [{:keys [status], :as results}]
   (if (= status :completed)
@@ -721,33 +717,29 @@
         (testing "Card in the Root Collection"
           (t2.with-temp/with-temp [Collection dest-card-collection]
             (perms/grant-collection-readwrite-permissions! (perms-group/all-users) dest-card-collection)
-            (is (schema= {:message  (s/eq "You cannot save this Question because you do not have permissions to run its query.")
-                          s/Keyword s/Any}
-                         (save-card-via-API-with-native-source-query! 403 (mt/db) nil dest-card-collection)))))
+            (is (=? {:message  "You cannot save this Question because you do not have permissions to run its query."}
+                    (save-card-via-API-with-native-source-query! 403 (mt/db) nil dest-card-collection)))))
 
         (testing "Card in a different Collection for which we do not have perms"
           (mt/with-temp [Collection source-card-collection {}
                          Collection dest-card-collection   {}]
             (perms/grant-collection-readwrite-permissions! (perms-group/all-users) dest-card-collection)
-            (is (schema= {:message  (s/eq "You cannot save this Question because you do not have permissions to run its query.")
-                          s/Keyword s/Any}
-                         (save-card-via-API-with-native-source-query! 403 (mt/db) source-card-collection dest-card-collection)))))
+            (is (=? {:message  "You cannot save this Question because you do not have permissions to run its query."}
+                    (save-card-via-API-with-native-source-query! 403 (mt/db) source-card-collection dest-card-collection)))))
 
         (testing "similarly, if we don't have *write* perms for the dest collection it should also fail"
           (testing "Try to save in the Root Collection"
             (t2.with-temp/with-temp [Collection source-card-collection]
               (perms/grant-collection-read-permissions! (perms-group/all-users) source-card-collection)
-              (is (schema= {:message (s/eq "You do not have curate permissions for this Collection.")
-                            s/Keyword s/Any}
-                           (save-card-via-API-with-native-source-query! 403 (mt/db) source-card-collection nil)))))
+              (is (=? {:message "You do not have curate permissions for this Collection."}
+                      (save-card-via-API-with-native-source-query! 403 (mt/db) source-card-collection nil)))))
 
           (testing "Try to save in a different Collection for which we do not have perms"
             (mt/with-temp [Collection source-card-collection {}
                            Collection dest-card-collection   {}]
               (perms/grant-collection-read-permissions! (perms-group/all-users) source-card-collection)
-              (is (schema= {:message (s/eq "You do not have curate permissions for this Collection.")
-                            s/Keyword s/Any}
-                           (save-card-via-API-with-native-source-query! 403 (mt/db) source-card-collection dest-card-collection))))))))))
+              (is (=? {:message "You do not have curate permissions for this Collection."}
+                      (save-card-via-API-with-native-source-query! 403 (mt/db) source-card-collection dest-card-collection))))))))))
 
 (deftest ^:parallel infer-source-fields-test
   (mt/test-drivers (mt/normal-drivers-with-feature :nested-queries)
@@ -903,9 +895,8 @@
             card-results-metadata (qp.store/with-metadata-provider provider
                                     (let [result (mt/run-mbql-query orders {:limit 10})]
                                       (testing "Sanity check: should be able to query Orders"
-                                        (is (schema= {:status   (s/eq :completed)
-                                                      s/Keyword s/Any}
-                                                     result)))
+                                        (is (=? {:status :completed}
+                                                result)))
                                       (get-in result [:data :results_metadata :columns])))
             expected-cols         (qp.store/with-metadata-provider provider
                                     (qp/query->expected-cols (mt/mbql-query orders)))]
@@ -942,10 +933,9 @@
                                                                 :condition    [:= $product_id &Products.products.id]
                                                                 :alias        "Products"}]}
                                  :limit        10})]
-                  (is (schema= {:status    (s/eq :completed)
-                                :row_count (s/eq 10)
-                                s/Keyword  s/Any}
-                               results))
+                  (is (=? {:status    :completed
+                           :row_count 10}
+                          results))
                   (f results)))]
         (do-test
          (fn [results]
@@ -1018,10 +1008,9 @@
                       (qp/process-query query)))]
             (testing "with no FK remappings"
               (let [result (run-query)]
-                (is (schema= {:status    (s/eq :completed)
-                              :row_count (s/eq 2)
-                              s/Keyword  s/Any}
-                             result))
+                (is (=? {:status    :completed
+                         :row_count 2}
+                        result))
                 (is (= [1 1 14 37.65 2.07 39.72 nil "2019-02-11T21:40:27.892Z" 2
                         14 "8833419218504" "Awesome Concrete Shoes" "Widget" "McClure-Lockman" 25.1 4.0
                         "2017-12-31T14:41:56.87Z"]
@@ -1031,10 +1020,9 @@
                                               (mt/id :orders :product_id)
                                               (mt/id :products :title))
               (let [result (run-query)]
-                (is (schema= {:status    (s/eq :completed)
-                              :row_count (s/eq 2)
-                              s/Keyword  s/Any}
-                             result))
+                (is (=? {:status    :completed
+                         :row_count 2}
+                        result))
                 (is (=  ["ORDERS.ID"
                          "ORDERS.USER_ID"
                          "ORDERS.PRODUCT_ID"
@@ -1081,12 +1069,10 @@
                                :aggregation  [[:count]]
                                :breakout     [&Products.products.id]
                                :limit        5})]
-        (is (schema= {:status   (s/eq :completed)
-                      s/Keyword s/Any}
-                     expected-result))
-        (is (schema= {:status   (s/eq :completed)
-                      s/Keyword s/Any}
-                     actual-result))
+        (is (=? {:status :completed}
+                expected-result))
+        (is (=? {:status :completed}
+                actual-result))
         (is (= (mt/rows expected-result)
                (mt/rows actual-result)))))))
 
@@ -1141,10 +1127,9 @@
                  (map :field_ref metadata))))
         (testing "\nShould be able to use the query as a source query"
           (letfn [(test-query [query]
-                    (is (schema= {:status    (s/eq :completed)
-                                  :row_count (s/eq 2)
-                                  s/Keyword  s/Any}
-                                 (qp/process-query query))))
+                    (is (=? {:status    :completed
+                             :row_count 2}
+                            (qp/process-query query))))
                   (test-source-query [metadata]
                     (test-query
                      (cond-> (mt/mbql-query nil
@@ -1173,42 +1158,39 @@
   (testing "We should handle legacy usage of field-literal inside filter clauses"
     (mt/dataset sample-dataset
       (testing "against joins (#14809)"
-        (is (schema= {:status   (s/eq :completed)
-                      s/Keyword s/Any}
-                     (mt/run-mbql-query orders
-                       {:source-query {:source-table $$orders
-                                       :joins        [{:fields       :all
-                                                       :source-table $$products
-                                                       :condition    [:= $product_id &Products.products.id]
-                                                       :alias        "Products"}]}
-                        :filter       [:= *CATEGORY/Text "Widget"]}))))
+        (is (=? {:status :completed}
+                (mt/run-mbql-query orders
+                  {:source-query {:source-table $$orders
+                                  :joins        [{:fields       :all
+                                                  :source-table $$products
+                                                  :condition    [:= $product_id &Products.products.id]
+                                                  :alias        "Products"}]}
+                   :filter       [:= *CATEGORY/Text "Widget"]}))))
       (testing "(#14811)"
-        (is (schema= {:status   (s/eq :completed)
-                      s/Keyword s/Any}
-                     (mt/run-mbql-query orders
-                       {:source-query {:source-table $$orders
-                                       :aggregation  [[:sum $product_id->products.price]]
-                                       :breakout     [$product_id->products.category]}
-                        ;; not sure why FE is using `field-literal` here... but it should work anyway.
-                        :filter       [:= *CATEGORY/Text "Widget"]})))))))
+        (is (=? {:status :completed}
+                (mt/run-mbql-query orders
+                  {:source-query {:source-table $$orders
+                                  :aggregation  [[:sum $product_id->products.price]]
+                                  :breakout     [$product_id->products.category]}
+                   ;; not sure why FE is using `field-literal` here... but it should work anyway.
+                   :filter       [:= *CATEGORY/Text "Widget"]})))))))
 
 (deftest ^:parallel support-legacy-dashboard-parameters-test
   (testing "We should handle legacy usage of field-literal inside (Dashboard) parameters (#14810)"
     (mt/dataset sample-dataset
-      (is (schema= {:status   (s/eq :completed)
-                    s/Keyword s/Any}
-                   (qp/process-query
-                    (mt/query orders
-                      {:type       :query
-                       :query      {:source-query {:source-table $$orders
-                                                   :joins        [{:fields       :all
-                                                                   :source-table $$products
-                                                                   :condition    [:= $product_id &Products.products.id]
-                                                                   :alias        "Products"}]}
-                                    :limit        2}
-                       :parameters [{:type   :category
-                                     :target [:dimension [:field "CATEGORY" {:base-type :type/Text}]]
-                                     :value  "Widget"}]})))))))
+      (is (=? {:status :completed}
+              (qp/process-query
+               (mt/query orders
+                 {:type       :query
+                  :query      {:source-query {:source-table $$orders
+                                              :joins        [{:fields       :all
+                                                              :source-table $$products
+                                                              :condition    [:= $product_id &Products.products.id]
+                                                              :alias        "Products"}]}
+                               :limit        2}
+                  :parameters [{:type   :category
+                                :target [:dimension [:field "CATEGORY" {:base-type :type/Text}]]
+                                :value  "Widget"}]})))))))
 
 (deftest ^:parallel nested-queries-with-expressions-and-joins-test
   (mt/test-drivers (mt/normal-drivers-with-feature :foreign-keys :nested-queries :left-join)

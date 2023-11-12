@@ -3,6 +3,7 @@
    #?@(:cljs ([metabase.test-runner.assert-exprs.approximately-equal]))
    [clojure.test :refer [deftest is testing]]
    [malli.core :as mc]
+   [medley.core :as m]
    [metabase.lib.core :as lib]
    [metabase.lib.expression :as lib.expression]
    [metabase.lib.schema :as lib.schema]
@@ -298,3 +299,54 @@
       (is (= ["ID" "Subtotal" "Total" "Tax" "Discount" "Quantity" "Created At" "Product ID" "User ID" "Unit price"]
              (map (partial lib/display-name query)
                   (lib/returned-columns query)))))))
+
+(deftest ^:parallel mixed-type-concat-expression-test
+  (testing "#34150"
+    (testing "various pemutations on venues"
+      (let [query (reduce (fn [query [label expr]]
+                            (lib/expression query -1 label expr))
+                          lib.tu/venues-query
+                          [["name+price" (lib/concat (meta/field-metadata :venues :name)
+                                                     (meta/field-metadata :venues :price))]
+                           ["$price"     (lib/concat "$" (meta/field-metadata :venues :price))]
+                           ["latXlong"   (lib/concat (meta/field-metadata :venues :latitude)
+                                                     " X "
+                                                     (meta/field-metadata :venues :longitude))]])]
+        (is (=? [{:name "name+price"}
+                 {:name "$price"}
+                 {:name "latXlong"}]
+                (->> (lib/visible-columns query)
+                     (filter (comp #{:source/expressions} :lib/source)))))))
+    (testing "dates"
+      (let [query (-> (lib/query meta/metadata-provider (meta/table-metadata :orders))
+                      (lib/expression "description"
+                                      (lib/concat (meta/field-metadata :orders :total)
+                                                  " on "
+                                                  (meta/field-metadata :orders :quantity)
+                                                  " as of "
+                                                  (meta/field-metadata :orders :created-at))))]
+        (is (=? [{:name "description"}]
+                (->> (lib/visible-columns query)
+                     (filter (comp #{:source/expressions} :lib/source)))))))))
+
+(deftest ^:parallel removing-join-removes-dependent-custom-columns
+  (testing "#14775 a custom column dependent on a join is dropped when the join is dropped"
+    (let [base  (-> (lib/query meta/metadata-provider (meta/table-metadata :orders))
+                    (lib/join (lib/join-clause (meta/table-metadata :products)
+                                               [(lib/= (meta/field-metadata :products :id)
+                                                       (meta/field-metadata :orders :product-id))])))
+          cols   (lib/returned-columns base)
+          ;; Fetching the rating like this rather than (meta/field-metadata ...) so it has the join alias correctly.
+          rating (m/find-first #(= (:id %) (meta/id :products :rating)) cols)
+          query  (lib/expression base "bad_product" (lib/< rating 3))
+          join   (first (lib/joins query))]
+      ;; TODO: There should probably be a (lib/join-alias join) ;=> "Products" function.
+      (is (=? [[:< {:lib/expression-name "bad_product"}
+                [:field {:join-alias (:alias join)} (meta/id :products :rating)]
+                3]]
+              (lib/expressions query)))
+      (is (= 1 (count (lib/joins query))))
+
+      (let [dropped (lib/remove-join query join)]
+        (is (empty? (lib/joins dropped)))
+        (is (empty? (lib/expressions dropped)))))))

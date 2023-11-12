@@ -21,6 +21,7 @@ import {
 import { USERS, USER_GROUPS } from "e2e/support/cypress_data";
 import {
   ORDERS_QUESTION_ID,
+  ORDERS_COUNT_QUESTION_ID,
   ORDERS_DASHBOARD_ID,
 } from "e2e/support/cypress_sample_instance_data";
 
@@ -218,6 +219,71 @@ describe(
                   cy.get(".DashCard").should("have.length", 2);
                 });
 
+                it("should hide public collections when selecting a dashboard for a question in a personal collection", () => {
+                  const collectionInRoot = {
+                    name: "Collection in root collection",
+                  };
+                  const dashboardInRoot = {
+                    name: "Dashboard in root collection",
+                  };
+                  const myPersonalCollection = "My personal collection";
+                  cy.createCollection(collectionInRoot);
+                  cy.createDashboard(dashboardInRoot);
+                  cy.log(
+                    "reload the page so the new collection is in the state",
+                  );
+                  cy.reload();
+
+                  cy.log("Move the question to a personal collection");
+                  openQuestionActions();
+                  popover().findByText("Move").click();
+                  modal().within(() => {
+                    cy.findByRole("heading", {
+                      name: myPersonalCollection,
+                    }).click();
+                    cy.button("Move").click();
+                  });
+
+                  cy.log("assert public collections are not visible");
+                  openQuestionActions();
+                  popover().findByText("Add to dashboard").click();
+                  modal().within(() => {
+                    cy.findByText("Add this question to a dashboard").should(
+                      "be.visible",
+                    );
+                    cy.findByText(myPersonalCollection).should("be.visible");
+                    cy.findByText(collectionInRoot.name).should("not.exist");
+                    cy.findByText(dashboardInRoot.name).should("not.exist");
+                    cy.findByText("Create a new dashboard").should("not.exist");
+                    cy.icon("close").click();
+                  });
+
+                  cy.log("Move the question to the root collection");
+                  openQuestionActions();
+                  popover().findByText("Move").click();
+                  modal().within(() => {
+                    cy.findByRole("heading", { name: "Our analytics" }).click();
+                    cy.button("Move").click();
+                  });
+
+                  cy.log("assert all collections are visible");
+                  openQuestionActions();
+                  popover().findByText("Add to dashboard").click();
+                  modal().within(() => {
+                    cy.findByText("Add this question to a dashboard").should(
+                      "be.visible",
+                    );
+                    cy.findByText("My personal collection").should(
+                      "be.visible",
+                    );
+                    cy.findByText(collectionInRoot.name).should("be.visible");
+                    cy.findByText(dashboardInRoot.name).should("be.visible");
+                    cy.findByText("Create a new dashboard").should(
+                      "be.visible",
+                    );
+                  });
+                });
+
                 onlyOn(user === "normal", () => {
                   it("should preselect the most recently visited dashboard", () => {
                     openQuestionActions();
@@ -227,8 +293,7 @@ describe(
 
                     // before visiting the dashboard, we don't have any history
                     visitDashboard(ORDERS_DASHBOARD_ID);
-
-                    visitQuestion(ORDERS_QUESTION_ID);
+                    visitQuestion(ORDERS_COUNT_QUESTION_ID);
 
                     openQuestionActions();
                     cy.findByTestId("add-to-dashboard-button").click();
@@ -390,7 +455,7 @@ describeWithSnowplow("send snowplow question events", () => {
   });
 
   it("should send event when clicking `Turn into a model`", () => {
-    visitQuestion(1);
+    visitQuestion(ORDERS_QUESTION_ID);
     openQuestionActions();
     expectGoodSnowplowEvents(
       NUMBERS_OF_GOOD_SNOWPLOW_EVENTS_BEFORE_MODEL_CONVERSION,

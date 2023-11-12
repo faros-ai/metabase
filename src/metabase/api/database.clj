@@ -5,6 +5,7 @@
    [compojure.core :refer [DELETE GET POST PUT]]
    [medley.core :as m]
    [metabase.analytics.snowplow :as snowplow]
+   [metabase.api.card :as api.card]
    [metabase.api.common :as api]
    [metabase.api.table :as api.table]
    [metabase.config :as config]
@@ -45,7 +46,6 @@
    [metabase.util.log :as log]
    [metabase.util.malli :as mu]
    [metabase.util.malli.schema :as ms]
-   [toucan.db :as db]
    [toucan2.core :as t2]))
 
 (set! *warn-on-reflection* true)
@@ -232,6 +232,14 @@
   [db]
   (driver/database-supports? (driver.u/database->driver db) :uploads db))
 
+(defn- add-can-upload-to-dbs
+  "Add an entry to each DB about whether the user can upload to it."
+  [dbs]
+  (let [uploads-db-id (public-settings/uploads-database-id)]
+    (for [db dbs]
+      (assoc db :can_upload (and (= (:id db) uploads-db-id)
+                                 (api.card/can-upload? db (public-settings/uploads-schema-name)))))))
+
 (defn- dbs-list
   [& {:keys [include-tables?
              include-saved-questions-db?
@@ -246,6 +254,7 @@
         filter-by-data-access? (not (or include-editable-data-model? exclude-uneditable-details?))]
     (cond-> (add-native-perms-info dbs)
       include-tables?              add-tables
+      true                         add-can-upload-to-dbs
       include-editable-data-model? filter-databases-by-data-model-perms
       exclude-uneditable-details?  (#(filter mi/can-write? %))
       filter-by-data-access?       (#(filter mi/can-read? %))
@@ -322,6 +331,12 @@
                             ; filter hidden fields
                             (= include "tables.fields") (map #(update % :fields filter-sensitive-fields))))))))
 
+(defn- add-can-upload
+  "Add an entry about whether the user can upload to this DB."
+  [db]
+  (assoc db :can_upload (and (= (u/the-id db) (public-settings/uploads-database-id))
+                             (api.card/can-upload? db (public-settings/uploads-schema-name)))))
+
 (api/defendpoint GET "/:id"
   "Get a single Database with `id`. Optionally pass `?include=tables` or `?include=tables.fields` to include the Tables
   belonging to this database, or the Tables and Fields, respectively.  If the requestor has write permissions for the DB
@@ -344,6 +359,7 @@
       exclude-uneditable-details?  api/write-check
       true                         add-expanded-schedules
       true                         (get-database-hydrate-include include)
+      true                         add-can-upload
       include-editable-data-model? check-db-data-model-perms
       (mi/can-write? database)     (->
                                     secret/expand-db-details-inferred-secret-values
@@ -575,6 +591,7 @@
   :visibility :public
   :type       :keyword
   :default    :substring
+  :audit      :raw-value
   :setter     (fn [v]
                 (let [v (cond-> v (string? v) keyword)]
                   (if (autocomplete-matching-options v)
@@ -770,15 +787,18 @@
                                           (sync.schedules/default-randomized-schedule)))
                                        (when (some? auto_run_queries)
                                          {:auto_run_queries auto_run_queries})))))
-        (events/publish-event! :database-create <>)
+        (events/publish-event! :event/database-create {:object <> :user-id api/*current-user-id*})
         (snowplow/track-event! ::snowplow/database-connection-successful
                                api/*current-user-id*
-                               {:database engine, :database-id (u/the-id <>), :source :admin}))
+                               {:database     engine
+                                :database-id  (u/the-id <>)
+                                :source       :admin
+                                :dbms-version (:version (driver/dbms-version (keyword engine) <>))}))
       ;; failed to connect, return error
       (do
         (snowplow/track-event! ::snowplow/database-connection-failed
                                api/*current-user-id*
-                               {:database engine, :source :setup})
+                               {:database engine :source :setup})
         {:status 400
          :body   (dissoc details-or-error :valid)}))))
 
@@ -894,34 +914,36 @@
         ;; TODO - is there really a reason to let someone change the engine on an existing database?
         ;;       that seems like the kind of thing that will almost never work in any practical way
         ;; TODO - this means one cannot unset the description. Does that matter?
-        (db/update-non-nil-keys! Database id
-                                 (merge
-                                  {:name               name
-                                   :engine             engine
-                                   :details            details
-                                   :refingerprint      refingerprint
-                                   :is_full_sync       full-sync?
-                                   :is_on_demand       (boolean is_on_demand)
-                                   :description        description
-                                   :caveats            caveats
-                                   :points_of_interest points_of_interest
-                                   :auto_run_queries   auto_run_queries}
-                                  ;; upsert settings with a PATCH-style update. `nil` key means unset the Setting.
-                                  (when (seq settings)
-                                    {:settings (into {}
-                                                     (remove (fn [[_k v]] (nil? v)))
-                                                     (merge (:settings existing-database) settings))})
-                                  (cond
-                                    ;; transition back to metabase managed schedules. the schedule
-                                    ;; details, even if provided, are ignored. database is the
-                                    ;; current stored value and check against the incoming details
-                                    (and (get-in existing-database [:details :let-user-control-scheduling])
-                                         (not (:let-user-control-scheduling details)))
-                                    (sync.schedules/schedule-map->cron-strings (sync.schedules/default-randomized-schedule))
+        (t2/update! Database id
+                    (m/remove-vals
+                      nil?
+                      (merge
+                        {:name               name
+                         :engine             engine
+                         :details            details
+                         :refingerprint      refingerprint
+                         :is_full_sync       full-sync?
+                         :is_on_demand       (boolean is_on_demand)
+                         :description        description
+                         :caveats            caveats
+                         :points_of_interest points_of_interest
+                         :auto_run_queries   auto_run_queries}
+                        ;; upsert settings with a PATCH-style update. `nil` key means unset the Setting.
+                        (when (seq settings)
+                          {:settings (into {}
+                                           (remove (fn [[_k v]] (nil? v)))
+                                           (merge (:settings existing-database) settings))})
+                        (cond
+                          ;; transition back to metabase managed schedules. the schedule
+                          ;; details, even if provided, are ignored. database is the
+                          ;; current stored value and check against the incoming details
+                          (and (get-in existing-database [:details :let-user-control-scheduling])
+                               (not (:let-user-control-scheduling details)))
+                          (sync.schedules/schedule-map->cron-strings (sync.schedules/default-randomized-schedule))
 
-                                    ;; if user is controlling schedules
-                                    (:let-user-control-scheduling details)
-                                    (sync.schedules/schedule-map->cron-strings (sync.schedules/scheduling schedules)))))
+                          ;; if user is controlling schedules
+                          (:let-user-control-scheduling details)
+                          (sync.schedules/schedule-map->cron-strings (sync.schedules/scheduling schedules))))))
         ;; do nothing in the case that user is not in control of
         ;; scheduling. leave them as they are in the db
 
@@ -931,7 +953,9 @@
           (t2/update! Database id {:cache_ttl cache_ttl}))
 
         (let [db (t2/select-one Database :id id)]
-          (events/publish-event! :database-update db)
+          (events/publish-event! :event/database-update {:object db
+                                                         :user-id api/*current-user-id*
+                                                         :previous-object existing-database})
           ;; return the DB with the expanded schedules back in place
           (add-expanded-schedules db))))))
 
@@ -944,10 +968,10 @@
   {id ms/PositiveInt}
   (api/check-superuser)
   (api/let-404 [db (t2/select-one Database :id id)]
+    (api/check-403 (mi/can-write? db))
     (t2/delete! Database :id id)
-    (events/publish-event! :database-delete db))
+    (events/publish-event! :event/database-delete {:object db :user-id api/*current-user-id*}))
   api/generic-204-no-content)
-
 
 ;;; ------------------------------------------ POST /api/database/:id/sync_schema -------------------------------------------
 
@@ -958,6 +982,7 @@
   {id ms/PositiveInt}
   ;; just wrap this in a future so it happens async
   (let [db (api/write-check (t2/select-one Database :id id))]
+    (events/publish-event! :event/database-manual-sync {:object db :user-id api/*current-user-id*})
     (future
       (sync-metadata/sync-db-metadata! db)
       (analyze/analyze-db! db)))
@@ -993,6 +1018,7 @@
   {id ms/PositiveInt}
   ;; just wrap this is a future so it happens async
   (let [db (api/write-check (t2/select-one Database :id id))]
+    (events/publish-event! :event/database-manual-scan {:object db :user-id api/*current-user-id*})
     ;; Override *current-user-permissions-set* so that permission checks pass during sync. If a user has DB detail perms
     ;; but no data perms, they should stll be able to trigger a sync of field values. This is fine because we don't
     ;; return any actual field values from this API. (#21764)
@@ -1021,7 +1047,9 @@
   "Discards all saved field values for this `Database`."
   [id]
   {id ms/PositiveInt}
-  (delete-all-field-values-for-database! (api/write-check (t2/select-one Database :id id)))
+  (let [db (api/write-check (t2/select-one Database :id id))]
+    (events/publish-event! :event/database-discard-field-values {:object db :user-id api/*current-user-id*})
+    (delete-all-field-values-for-database! db))
   {:status :ok})
 
 

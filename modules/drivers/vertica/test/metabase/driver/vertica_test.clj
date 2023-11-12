@@ -2,7 +2,6 @@
   (:require
    [clojure.string :as str]
    [clojure.test :refer :all]
-   [metabase.db.query :as mdb.query]
    [metabase.driver :as driver]
    [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
    [metabase.query-processor :as qp]
@@ -12,10 +11,8 @@
 
 (deftest db-timezone-test
   (mt/test-driver :vertica
-    ;; not 100% sure why sometimes we get one or the other, I think it has to do with our Vertica Docker image? We
-    ;; mostly just want to make sure the impl returns SOMETHING
-    (is (#{"America/Los_Angeles" "UTC"}
-         (driver/db-default-timezone :vertica (mt/db))))))
+    (is (= "UTC"
+           (driver/db-default-timezone :vertica (mt/db))))))
 
 (deftest ^:parallel additional-connection-string-options-test
   (testing "Make sure you can add additional connection string options (#6651)"
@@ -29,7 +26,7 @@
 
 (defn- compile-query [query]
   (-> (qp/compile query)
-      (update :query #(str/split-lines (mdb.query/format-sql % :vertica)))))
+      (update :query #(str/split-lines (driver/prettify-native-form :vertica %)))))
 
 (deftest ^:parallel percentile-test
   (mt/test-driver :vertica

@@ -131,7 +131,7 @@
 
 (def orderable-types
   "Set of base types that are orderable."
-  #{:type/Text :type/Number :type/Temporal})
+  #{:type/Text :type/Number :type/Temporal :type/Boolean})
 
 (mr/def ::orderable
   (expression-schema orderable-types
@@ -139,7 +139,12 @@
 
 (def equality-comparable-types
   "Set of base types that can be campared with equality."
-   #{:type/Boolean :type/Text :type/Number :type/Temporal})
+   #{:type/Boolean :type/Text :type/Number :type/Temporal :type/IPAddress :type/MongoBSONID :type/Array})
+
+(mr/def ::emptyable
+  [:or
+   [:ref ::string]
+   (expression-schema :type/MongoBSONID "expression returning a BSONID")])
 
 (mr/def ::equality-comparable
   [:maybe

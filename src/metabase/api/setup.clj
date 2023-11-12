@@ -1,7 +1,7 @@
 (ns metabase.api.setup
   (:require
    [compojure.core :refer [GET POST]]
-   [java-time :as t]
+   [java-time.api :as t]
    [metabase.analytics.snowplow :as snowplow]
    [metabase.api.common :as api]
    [metabase.api.common.validation :as validation]
@@ -82,6 +82,7 @@
       (log/error (trs "Could not invite user because email is not configured."))
       (u/prog1 (user/create-and-invite-user! user invitor true)
         (user/set-permissions-groups! <> [(perms-group/all-users) (perms-group/admin)])
+        (events/publish-event! :event/user-invited {:object (assoc <> :invite_method "email")})
         (snowplow/track-event! ::snowplow/invite-sent api/*current-user-id* {:invited-user-id (u/the-id <>)
                                                                              :source          "setup"})))))
 
@@ -164,13 +165,21 @@
                 (setting.cache/restore-cache!)
                 (snowplow/track-event! ::snowplow/database-connection-failed nil {:database engine, :source :setup})
                 (throw e))))]
-    (let [{:keys [user-id session-id database session]} (create!)]
-      (events/publish-event! :database-create database)
-      (events/publish-event! :user-login {:user_id user-id, :session_id session-id, :first_login true})
+    (let [{:keys [user-id session-id database session]} (create!)
+          superuser (t2/select-one :model/User :id user-id)]
+      (when database
+        (events/publish-event! :event/database-create {:object database :user-id user-id}))
+      (events/publish-event! :event/user-login {:user-id user-id})
+      (when-not (:last_login superuser)
+        (events/publish-event! :event/user-joined {:user-id user-id}))
       (snowplow/track-event! ::snowplow/new-user-created user-id)
-      (when database (snowplow/track-event! ::snowplow/database-connection-successful
-                                            user-id
-                                            {:database engine, :database-id (u/the-id database), :source :setup}))
+      (when database
+        (snowplow/track-event! ::snowplow/database-connection-successful
+                               user-id
+                               {:database     engine
+                                :database-id  (u/the-id database)
+                                :source       :setup
+                                :dbms_version (:version (driver/dbms-version (keyword engine) database))}))
       ;; return response with session ID and set the cookie as well
       (mw.session/set-session-cookies request {:id session-id} session (t/zoned-date-time (t/zone-id "GMT"))))))
 
@@ -194,7 +203,7 @@
 
 ;;; Admin Checklist
 
-(def ChecklistState
+(def ^:private ChecklistState
   "Malli schema for the state to annotate the checklist."
   [:map {:closed true}
    [:db-type [:enum :h2 :mysql :postgres]]
@@ -322,8 +331,7 @@
   ([checklist-info]
    (annotate (checklist-items checklist-info))))
 
-#_{:clj-kondo/ignore [:deprecated-var]}
-(api/defendpoint-schema GET "/admin_checklist"
+(api/defendpoint GET "/admin_checklist"
   "Return various \"admin checklist\" steps and whether they've been completed. You must be a superuser to see this!"
   []
   (validation/check-has-application-permission :setting)
@@ -331,8 +339,7 @@
 
 ;; User defaults endpoint
 
-#_{:clj-kondo/ignore [:deprecated-var]}
-(api/defendpoint-schema GET "/user_defaults"
+(api/defendpoint GET "/user_defaults"
   "Returns object containing default user details for initial setup, if configured,
    and if the provided token value matches the token in the configuration value."
   [token]
