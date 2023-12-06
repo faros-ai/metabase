@@ -1,7 +1,6 @@
 /* eslint-env node */
 /* eslint-disable import/no-commonjs */
 /* eslint-disable import/order */
-const Sentry = require("./webpack.sentry.config");
 const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
 
 const webpack = require("webpack");
@@ -226,7 +225,6 @@ const config = (module.exports = {
     new NodePolyfillPlugin(), // for crypto, among others
     new webpack.EnvironmentPlugin({
       WEBPACK_BUNDLE: "development",
-      ...Sentry.SENTRY_ENVIRONMENT
     }),
     // https://github.com/remarkjs/remark/discussions/903
     new webpack.ProvidePlugin({ process: "process/browser.js" }),
