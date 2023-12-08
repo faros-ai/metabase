@@ -3,10 +3,10 @@
    [clojure.string :as str]
    [hiccup.core :refer [h]]
    [medley.core :as m]
+   [metabase.formatter :as formatter]
+   [metabase.formatter.datetime :as datetime]
    [metabase.public-settings :as public-settings]
    [metabase.pulse.render.color :as color]
-   [metabase.pulse.render.common :as common]
-   [metabase.pulse.render.datetime :as datetime]
    [metabase.pulse.render.image-bundle :as image-bundle]
    [metabase.pulse.render.js-svg :as js-svg]
    [metabase.pulse.render.style :as style]
@@ -77,26 +77,10 @@
     (datetime/format-temporal-str timezone-id value col)
 
     (number? value)
-    (common/format-number value col visualization-settings)
+    (formatter/format-number value col visualization-settings)
 
     :else
     (str value)))
-
-(s/defn ^:private get-format
-  [timezone-id :- (s/maybe s/Str) col visualization-settings]
-  (cond
-    ;; for numbers, return a format function that has already computed the differences.
-    ;; todo: do the same for temporal strings
-    (types/temporal-field? col)
-    #(datetime/format-temporal-str timezone-id % col visualization-settings)
-
-    ;; todo integer columns with a unit
-    (or (isa? (:effective_type col) :type/Number)
-        (isa? (:base_type col) :type/Number))
-    (common/number-formatter col visualization-settings)
-
-    :else
-    str))
 
 ;;; --------------------------------------------------- Rendering ----------------------------------------------------
 
@@ -136,7 +120,7 @@
                     ;; in the output and should be skipped
                     :when              (not (:remapped_from maybe-remapped-col))]
                 (if (isa? ((some-fn :effective_type :base_type) col) :type/Number)
-                  (common/map->NumericWrapper {:num-str col-name :num-value col-name})
+                  (formatter/map->NumericWrapper {:num-str col-name :num-value col-name})
                   col-name))
    :bar-width (when include-bar? 99)})
 
@@ -151,8 +135,15 @@
 
 (s/defn ^:private query-results->row-seq
   "Returns a seq of stringified formatted rows that can be rendered into HTML"
-  [timezone-id :- (s/maybe s/Str) remapping-lookup cols rows viz-settings {:keys [bar-column min-value max-value]}]
-  (let [formatters (into [] (map #(get-format timezone-id % viz-settings)) cols)]
+  [timezone-id :- (s/maybe s/Str)
+   remapping-lookup
+   cols
+   rows
+   viz-settings
+   {:keys [bar-column min-value max-value]}]
+  (let [formatters (into []
+                         (map #(formatter/create-formatter timezone-id % viz-settings))
+                         cols)]
     (for [row rows]
       {:bar-width (some-> (and bar-column (bar-column row))
                           (normalize-bar-value min-value max-value))
@@ -176,13 +167,16 @@
    (let [remapping-lookup (create-remapping-lookup cols)]
      (cons
       (query-results->header-row remapping-lookup card cols bar-column)
-      (query-results->row-seq timezone-id remapping-lookup cols
-                              (take rows-limit rows)
-                              viz-settings
-                              data-attributes)))))
+      (query-results->row-seq
+       timezone-id
+       remapping-lookup
+       cols
+       (take rows-limit rows)
+       viz-settings
+       data-attributes)))))
 
 (defn- strong-limit-text [number]
-  [:strong {:style (style/style {:color style/color-gray-3})} (h (common/format-number number))])
+  [:strong {:style (style/style {:color style/color-gray-3})} (h (formatter/format-number number))])
 
 (defn- render-truncation-warning
   [row-limit row-count]
@@ -204,7 +198,6 @@
                                 :margin-bottom :16px})}
      (trs "More results have been included as a file attachment")]))
 
-
 ;;; +----------------------------------------------------------------------------------------------------------------+
 ;;; |                                                     render                                                     |
 ;;; +----------------------------------------------------------------------------------------------------------------+
@@ -225,7 +218,7 @@
       [ordered-cols ordered-rows])
     [(:cols data) (:rows data)]))
 
-(s/defmethod render :table :- common/RenderedPulseCard
+(s/defmethod render :table :- formatter/RenderedPulseCard
   [_ render-type timezone-id :- (s/maybe s/Str) card _dashcard {:keys [rows viz-settings] :as data}]
   (let [[ordered-cols ordered-rows] (order-data data viz-settings)
         data                        (-> data
@@ -474,11 +467,11 @@
             row))
         rows))
 
-(s/defmethod render :categorical/donut :- common/RenderedPulseCard
+(s/defmethod render :categorical/donut :- formatter/RenderedPulseCard
   [_ render-type timezone-id :- (s/maybe s/Str) card _dashcard {:keys [rows cols viz-settings] :as data}]
-  (let [[x-axis-rowfn y-axis-rowfn] (common/graphing-column-row-fns card data)
+  (let [[x-axis-rowfn y-axis-rowfn] (formatter/graphing-column-row-fns card data)
         rows                        (map (juxt (comp str x-axis-rowfn) y-axis-rowfn)
-                                         (common/row-preprocess x-axis-rowfn y-axis-rowfn (replace-nils rows)))
+                                         (formatter/row-preprocess x-axis-rowfn y-axis-rowfn (replace-nils rows)))
         slice-threshold             (or (get viz-settings :pie.slice_threshold)
                                         2.5)
         {:keys [rows percentages]}  (donut-info slice-threshold rows)
@@ -512,7 +505,7 @@
                                 label)}))
              rows))]}))
 
-(s/defmethod render :progress :- common/RenderedPulseCard
+(s/defmethod render :progress :- formatter/RenderedPulseCard
   [_ render-type _timezone-id _card _dashcard {:keys [cols rows viz-settings] :as _data}]
   (let [value        (ffirst rows)
         goal         (:progress.goal viz-settings)
@@ -783,7 +776,7 @@
         card-name       (:name card)
         viz-settings    (:visualization_settings card)
         joined-rows     (map (juxt x-fn y-fn)
-                             (common/row-preprocess x-fn y-fn (:rows data)))
+                             (formatter/row-preprocess x-fn y-fn (:rows data)))
         [x-cols y-cols] ((juxt x-fn y-fn) (get-in result [:result :data :cols]))
         combo-series-fn (if (= (count x-cols) 1) single-x-axis-combo-series double-x-axis-combo-series)]
     (combo-series-fn enforced-type joined-rows x-cols y-cols viz-settings card-name)))
@@ -838,23 +831,23 @@
      render-multiple-lab-chart)
    render-type card dashcard data))
 
-(s/defmethod render :line :- common/RenderedPulseCard
+(s/defmethod render :line :- formatter/RenderedPulseCard
   [_ render-type timezone-id card _dashcard data]
   (attach-image-bundle (lab-image-bundle :line render-type timezone-id card data)))
 
-(s/defmethod render :area :- common/RenderedPulseCard
+(s/defmethod render :area :- formatter/RenderedPulseCard
   [_ render-type timezone-id card _dashcard data]
   (attach-image-bundle (lab-image-bundle :area render-type timezone-id card data)))
 
-(s/defmethod render :bar :- common/RenderedPulseCard
+(s/defmethod render :bar :- formatter/RenderedPulseCard
   [_chart-type render-type timezone-id :- (s/maybe s/Str) card _dashcard data]
   (attach-image-bundle (lab-image-bundle :bar render-type timezone-id card data)))
 
-(s/defmethod render :combo :- common/RenderedPulseCard
+(s/defmethod render :combo :- formatter/RenderedPulseCard
   [_chart-type render-type timezone-id :- (s/maybe s/Str) card _dashcard data]
   (attach-image-bundle (lab-image-bundle :combo render-type timezone-id card data)))
 
-(s/defmethod render :gauge :- common/RenderedPulseCard
+(s/defmethod render :gauge :- formatter/RenderedPulseCard
   [_chart-type render-type _timezone-id :- (s/maybe s/Str) card _dashcard data]
   (let [image-bundle (image-bundle/make-image-bundle
                       render-type
@@ -868,7 +861,7 @@
       [:img {:style (style/style {:display :block :width :100%})
              :src   (:image-src image-bundle)}]]}))
 
-(s/defmethod render :row :- common/RenderedPulseCard
+(s/defmethod render :row :- formatter/RenderedPulseCard
   [_ render-type _timezone-id card _dashcard {:keys [rows cols] :as _data}]
   (let [viz-settings (get card :visualization_settings)
         data {:rows rows
@@ -885,7 +878,7 @@
       [:img {:style (style/style {:display :block :width :100%})
              :src   (:image-src image-bundle)}]]}))
 
-(s/defmethod render :scalar :- common/RenderedPulseCard
+(s/defmethod render :scalar :- formatter/RenderedPulseCard
   [_chart-type _render-type timezone-id _card _dashcard {:keys [cols rows viz-settings]}]
   (let [value (format-cell timezone-id (ffirst rows) (first cols) viz-settings)]
     {:attachments
@@ -896,7 +889,7 @@
       (h value)]
      :render/text (str value)}))
 
-(s/defmethod render :smartscalar :- common/RenderedPulseCard
+(s/defmethod render :smartscalar :- formatter/RenderedPulseCard
   [_chart-type _render-type timezone-id _card _dashcard {:keys [cols insights viz-settings]}]
   (letfn [(col-of-type [t c] (or (isa? (:effective_type c) t)
                                  ;; computed and agg columns don't have an effective type
@@ -944,13 +937,13 @@
          :render/text (str (format-cell timezone-id last-value metric-col viz-settings)
                            "\n" (trs "Nothing to compare to."))}))))
 
-(s/defmethod render :waterfall :- common/RenderedPulseCard
+(s/defmethod render :waterfall :- formatter/RenderedPulseCard
   [_ render-type _timezone-id card _dashcard {:keys [rows cols viz-settings] :as data}]
   (let [[x-axis-rowfn
-         y-axis-rowfn] (common/graphing-column-row-fns card data)
+         y-axis-rowfn] (formatter/graphing-column-row-fns card data)
         [x-col y-col]  ((juxt x-axis-rowfn y-axis-rowfn) cols)
         rows           (map (juxt x-axis-rowfn y-axis-rowfn)
-                            (common/row-preprocess x-axis-rowfn y-axis-rowfn rows))
+                            (formatter/row-preprocess x-axis-rowfn y-axis-rowfn rows))
         labels         (x-and-y-axis-label-info x-col y-col viz-settings)
         waterfall-type (if (isa? (-> cols x-axis-rowfn :effective_type) :type/Temporal)
                          :timeseries
@@ -980,12 +973,12 @@
       [:img {:style (style/style {:display :block :width :100%})
              :src   (:image-src image-bundle)}]]}))
 
-(s/defmethod render :funnel :- common/RenderedPulseCard
+(s/defmethod render :funnel :- formatter/RenderedPulseCard
   [_ render-type _timezone-id card _dashcard {:keys [rows cols viz-settings] :as data}]
   (let [[x-axis-rowfn
-         y-axis-rowfn] (common/graphing-column-row-fns card data)
+         y-axis-rowfn] (formatter/graphing-column-row-fns card data)
         rows           (map (juxt x-axis-rowfn y-axis-rowfn)
-                            (common/row-preprocess x-axis-rowfn y-axis-rowfn rows))
+                            (formatter/row-preprocess x-axis-rowfn y-axis-rowfn rows))
         [x-col y-col]  cols
         settings       (as-> (->js-viz x-col y-col viz-settings) jsviz-settings
                          (assoc jsviz-settings :step    {:name   (:display_name x-col)
@@ -1001,8 +994,7 @@
       [:img {:style (style/style {:display :block :width :100%})
              :src   (:image-src image-bundle)}]]}))
 
-
-(s/defmethod render :empty :- common/RenderedPulseCard
+(s/defmethod render :empty :- formatter/RenderedPulseCard
   [_ render-type _ _ _ _]
   (let [image-bundle (image-bundle/no-results-image-bundle render-type)]
     {:attachments
@@ -1019,7 +1011,7 @@
        (trs "No results")]]
      :render/text (trs "No results")}))
 
-(s/defmethod render :attached :- common/RenderedPulseCard
+(s/defmethod render :attached :- formatter/RenderedPulseCard
   [_ render-type _ _ _ _]
   (let [image-bundle (image-bundle/attached-image-bundle render-type)]
     {:attachments
@@ -1035,7 +1027,7 @@
                       :color      style/color-gray-4})}
        (trs "This question has been included as a file attachment")]]}))
 
-(s/defmethod render :unknown :- common/RenderedPulseCard
+(s/defmethod render :unknown :- formatter/RenderedPulseCard
   [_ _ _ _ _ _]
   {:attachments
    nil
@@ -1049,10 +1041,10 @@
     [:br]
     (trs "Please view this card in Metabase.")]})
 
-(s/defmethod render :card-error :- common/RenderedPulseCard
+(s/defmethod render :card-error :- formatter/RenderedPulseCard
   [_ _ _ _ _ _]
   @card-error-rendered-info)
 
-(s/defmethod render :render-error :- common/RenderedPulseCard
+(s/defmethod render :render-error :- formatter/RenderedPulseCard
   [_ _ _ _ _ _]
   @error-rendered-info)

@@ -211,8 +211,10 @@
 
 (defmethod rename-key-fn :field
   [_object-type]
-  {:source :lib/source
-   :unit   :metabase.lib.field/temporal-unit})
+  {:source          :lib/source
+   :unit            :metabase.lib.field/temporal-unit
+   :expression-name :lib/expression-name
+   :binning-info    :metabase.lib.field/binning})
 
 (defn- parse-field-id
   [id]
@@ -220,6 +222,20 @@
     ;; sometimes instead of an ID we get a field reference
     ;; with the name of the column in the second position
     (vector? id) second))
+
+(defn- parse-binning-info
+  [m]
+  (obj->clj
+   (map (fn [[k v]]
+          (let [k (keyword (u/->kebab-case-en k))
+                k (if (= k :binning-strategy)
+                    :strategy
+                    k)
+                v (if (= k :strategy)
+                    (keyword v)
+                    v)]
+            [k v])))
+   m))
 
 (defmethod parse-field-fn :field
   [_object-type]
@@ -240,6 +256,7 @@
       :semantic-type                    (keyword v)
       :visibility-type                  (keyword v)
       :id                               (parse-field-id v)
+      :metabase.lib.field/binning       (parse-binning-info v)
       v)))
 
 (defmethod parse-objects :field
@@ -425,8 +442,14 @@
         :when              (and a-segment (= (:table-id a-segment) table-id))]
     a-segment))
 
-(defn- setting [setting-key]
-  (.get js/__metabaseSettings (name setting-key)))
+(defn- setting [setting-key ^js unparsed-metadata]
+  (if (and js/describe js/it)
+    ;; Trust the metadata's settings in tests.
+    (-> unparsed-metadata
+        (.-settings)
+        (aget (name setting-key)))
+    ;; And use the global, async-updated one in prod.
+    (.get js/__metabaseSettings (name setting-key))))
 
 (defn metadata-provider
   "Use a `metabase-lib/metadata/Metadata` as a [[metabase.lib.metadata.protocols/MetadataProvider]]."
@@ -444,7 +467,7 @@
       (fields   [_this table-id]    (fields   metadata table-id))
       (metrics  [_this table-id]    (metrics  metadata table-id))
       (segments [_this table-id]    (segments metadata table-id))
-      (setting  [_this setting-key] (setting  setting-key))
+      (setting  [_this setting-key] (setting  setting-key unparsed-metadata))
 
       ;; for debugging: call [[clojure.datafy/datafy]] on one of these to parse all of our metadata and see the whole
       ;; thing at once.

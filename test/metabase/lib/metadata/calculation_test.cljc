@@ -72,12 +72,12 @@
 
 (deftest ^:parallel display-name-without-metadata-test
   (testing "Some display name is generated for fields even if they cannot be resolved (#33490)"
-    (let [query lib.tu/venues-query
-          field-id (inc (apply max (map :id (lib/visible-columns query))))
+    (let [query      lib.tu/venues-query
+          field-id   (inc (apply max (map :id (lib/visible-columns query))))
           field-name (str field-id)]
       (mu/disable-enforcement
-        (is (=? {:name field-id
-                 :display-name field-name
+        (is (=? {:name              (str field-id)
+                 :display-name      field-name
                  :long-display-name (str "join → " field-name)}
                 (lib/display-info query [:field {:join-alias "join"} field-id])))))))
 
@@ -129,8 +129,7 @@
                                  :source-card (:id (lib.tu/mock-cards :orders))}]}
           own-fields (for [field (lib.metadata/fields lib.tu/metadata-provider-with-mock-cards (meta/id :orders))]
                        (-> field
-                           (assoc :lib/source :source/card)
-                           (dissoc :id :table-id)))]
+                           (assoc :lib/source :source/card)))]
       (testing "implicitly joinable columns"
         (testing "are included by visible-columns"
           (is (=? (->> (concat own-fields
@@ -142,7 +141,24 @@
                   (sort-by (juxt :name :id) (lib.metadata.calculation/visible-columns query)))))
         (testing "are not included by returned-columns"
           (is (=? (sort-by (juxt :name :id) own-fields)
-                  (sort-by (juxt :name :id) (lib.metadata.calculation/returned-columns query)))))))))
+                  (sort-by (juxt :name :id) (lib.metadata.calculation/returned-columns query))))))
+      (testing "multi-stage implicitly joinable columns"
+        (let [own-fields (mapv #(-> %
+                                    (dissoc :id :table-id)
+                                    (assoc :lib/source :source/previous-stage))
+                               own-fields)
+              query (lib/append-stage query)]
+          (testing "are included by visible-columns"
+            (is (=? (->> (concat own-fields
+                                 (for [field (lib.metadata/fields lib.tu/metadata-provider-with-mock-cards (meta/id :people))]
+                                   (assoc field :lib/source :source/implicitly-joinable))
+                                 (for [field (lib.metadata/fields lib.tu/metadata-provider-with-mock-cards (meta/id :products))]
+                                   (assoc field :lib/source :source/implicitly-joinable)))
+                         (sort-by (juxt :lib/source :name :id)))
+                    (sort-by (juxt :lib/source :name :id) (lib.metadata.calculation/visible-columns query)))))
+          (testing "are not included by returned-columns"
+            (is (=? (sort-by (juxt :name :id) own-fields)
+                    (sort-by (juxt :name :id) (lib.metadata.calculation/returned-columns query))))))))))
 
 (deftest ^:parallel self-join-visible-columns-test
   (let [query (-> (lib/query meta/metadata-provider (meta/table-metadata :orders))

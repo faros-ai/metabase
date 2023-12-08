@@ -103,7 +103,10 @@ const defaultConfig = {
     require("@cypress/grep/src/plugin")(config);
 
     if (runWithReplay) {
-      replay.default(on, config);
+      replay.default(on, config, {
+        upload: true,
+        apiKey: process.env.REPLAY_API_KEY,
+      });
     }
 
     return config;
@@ -122,14 +125,11 @@ const mainConfig = {
   ...defaultConfig,
   viewportHeight: 800,
   viewportWidth: 1280,
-  numTestsKeptInMemory: 1,
-  reporter: "mochawesome",
+  numTestsKeptInMemory: process.env["CI"] ? 1 : 50,
+  reporter: "junit",
   reporterOptions: {
-    reportDir: "cypress/reports/mochareports",
-    reportFilename: "[status]-[name]",
-    quiet: true,
-    html: false,
-    json: true,
+    mochaFile: "./target/junit/[hash].xml",
+    toConsole: true,
   },
   retries: {
     runMode: 2,

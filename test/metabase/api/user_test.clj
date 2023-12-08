@@ -4,7 +4,6 @@
    [clojure.test :refer :all]
    [metabase.api.user :as api.user]
    [metabase.config :as config]
-   [metabase.events.audit-log-test :as audit-log-test]
    [metabase.http-client :as client]
    [metabase.models
     :refer [Card Collection Dashboard LoginHistory PermissionsGroup
@@ -95,11 +94,11 @@
            :model/PermissionsGroup           {group-id3 :id} {:name "Good Folks"}
            :model/PermissionsGroupMembership _ {:user_id (mt/user->id :rasta) :group_id group-id1 :is_group_manager true}
            :model/PermissionsGroupMembership _ {:user_id (mt/user->id :lucky) :group_id group-id1 :is_group_manager false}
-           :model/PermissionsGroupMembership _ {:user_id (mt/user->id :crowberto) :group_id group-id2 :is_group_manager false}
+           :model/PermissionsGroupMembership _ {:user_id (mt/user->id :crowberto) :group_id group-id2 :is_group_manager true}
            :model/PermissionsGroupMembership _ {:user_id (mt/user->id :lucky) :group_id group-id2 :is_group_manager true}
            :model/PermissionsGroupMembership _ {:user_id (mt/user->id :rasta) :group_id group-id3 :is_group_manager false}
            :model/PermissionsGroupMembership _ {:user_id (mt/user->id :lucky) :group_id group-id3 :is_group_manager true}]
-        (testing "admin can get users from any group"
+        (testing "admin can get users from any group, even when they are also marked as a group manager"
           (is (= #{"lucky@metabase.com"
                    "rasta@metabase.com"}
                  (->> ((mt/user-http-request :crowberto :get 200 "user" :group_id group-id1) :data)
@@ -109,6 +108,13 @@
           (is (= #{"lucky@metabase.com"
                    "crowberto@metabase.com"}
                  (->> ((mt/user-http-request :crowberto :get 200 "user" :group_id group-id2) :data)
+                      (filter mt/test-user?)
+                      (map :email)
+                      set)))
+          (is (= #{"crowberto@metabase.com"
+                   "rasta@metabase.com"
+                   "lucky@metabase.com"}
+                 (->> ((mt/user-http-request :crowberto :get 200 "user") :data)
                       (filter mt/test-user?)
                       (map :email)
                       set))))
@@ -1231,7 +1237,7 @@
 
 (deftest user-activate-deactivate-event-test
   (testing "User Deactivate/Reactivate events via the API are recorded in the audit log"
-    (mt/with-model-cleanup [:model/Activity :model/AuditLog]
+    (premium-features-test/with-premium-features #{:audit-app}
       (t2.with-temp/with-temp [User {:keys [id]} {:first_name "John"
                                                   :last_name  "Cena"}]
         (testing "DELETE /api/user/:id and PUT /api/user/:id/reactivate"
@@ -1247,22 +1253,23 @@
                    :model    "User"
                    :model_id id
                    :details  {}}]
-                 [(audit-log-test/latest-event :user-deactivated id)
-                  (audit-log-test/latest-event :user-reactivated id)])))))))
+                 [(mt/latest-audit-log-entry :user-deactivated id)
+                  (mt/latest-audit-log-entry :user-reactivated id)])))))))
 
 (deftest user-update-event-test
   (testing "User Updates via the API are recorded in the audit log"
     (t2.with-temp/with-temp [User {:keys [id]} {:first_name "John"
                                                 :last_name  "Cena"}]
-      (testing "PUT /api/user/:id"
-        (mt/user-http-request :crowberto :put 200 (format "user/%s" id)
-                              {:first_name "Johnny" :last_name "Appleseed"})
-        (is (= {:topic    :user-update
-                :user_id  (mt/user->id :crowberto)
-                :model    "User"
-                :model_id id
-                :details  {:new {:first_name "Johnny"
-                                 :last_name "Appleseed"}
-                           :previous {:first_name "John"
-                                      :last_name "Cena"}}}
-               (audit-log-test/latest-event :user-update id)))))))
+      (premium-features-test/with-premium-features #{:audit-app}
+        (testing "PUT /api/user/:id"
+          (mt/user-http-request :crowberto :put 200 (format "user/%s" id)
+                                {:first_name "Johnny" :last_name "Appleseed"})
+          (is (= {:topic    :user-update
+                  :user_id  (mt/user->id :crowberto)
+                  :model    "User"
+                  :model_id id
+                  :details  {:new {:first_name "Johnny"
+                                   :last_name "Appleseed"}
+                             :previous {:first_name "John"
+                                        :last_name "Cena"}}}
+                 (mt/latest-audit-log-entry :user-update id))))))))

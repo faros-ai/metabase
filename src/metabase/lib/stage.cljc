@@ -155,7 +155,11 @@
            ;; stages of a query. It's a little hacky that we're manipulating `::lib.field` keys directly here since
            ;; they're presumably supposed to be private-ish, but I don't have a more elegant way of solving this sort
            ;; of problem at this point in time.
-           (dissoc ::lib.field/temporal-unit))))))
+           ;;
+           ;; also don't retain `:lib/expression-name`, the fact that this column came from an expression in the
+           ;; previous stage should be totally irrelevant and we don't want it confusing our code that decides whether
+           ;; to generate `:expression` or `:field` refs.
+           (dissoc ::lib.field/temporal-unit :lib/expression-name))))))
 
 (mu/defn ^:private saved-question-metadata :- [:maybe lib.metadata.calculation/ColumnsWithUniqueAliases]
   "Metadata associated with a Saved Question, e.g. if we have a `:source-card`"
@@ -356,8 +360,15 @@
   (update query :stages conj {:lib/type :mbql.stage/mbql}))
 
 (mu/defn drop-stage :- ::lib.schema/query
-  "Drops the final stage in the pipeline"
+  "Drops the final stage in the pipeline, will no-op if it is the only stage"
   [query]
-  (when (= 1 (count (:stages query)))
-    (throw (ex-info (i18n/tru "Cannot drop the only stage") {:stages (:stages query)})))
-  (update query :stages (comp vec butlast)))
+  (if (= 1 (count (:stages query)))
+    query
+    (update query :stages pop)))
+
+(mu/defn drop-stage-if-empty :- ::lib.schema/query
+  "Drops the final stage in the pipeline IF the stage is empty of clauses, otherwise no-op"
+  [query :- ::lib.schema/query]
+  (if (empty? (dissoc (lib.util/query-stage query -1) :lib/type))
+    (drop-stage query)
+    query))
