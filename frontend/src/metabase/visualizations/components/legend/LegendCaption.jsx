@@ -1,10 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import { iconPropTypes } from "metabase/components/Icon";
 import Tooltip from "metabase/core/components/Tooltip";
 import Ellipsified from "metabase/core/components/Ellipsified";
 import PopoverWithTrigger from "metabase/components/PopoverWithTrigger";
+import {
+  ChartExplanationPopover,
+  defaultExplanation,
+  getMessageHandler,
+  getPopoverHandler,
+} from "../ChartExplanationPopover";
 import LegendActions from "./LegendActions";
 import {
   LegendCaptionRoot,
@@ -36,46 +42,28 @@ const LegendCaption = ({
   const enableChartExplainer = useSelector(
     state => state.embed.options.enable_chart_explainer,
   );
-  const defaultExplanation = "hang tight ...";
   const [explanation, setExplanation] = useState(defaultExplanation);
   const [isExplanationOpen, setIsExplanationOpen] = useState(false);
 
   const explanationIconRef = React.createRef();
 
-  const handlePopover = event => {
-    if (window.parent !== window && explanation === defaultExplanation) {
-      const messageData = {
-        lighthouse: {
-          type: "ChartExplainer",
-          payload: { ...chartExtras, title },
-        },
-      };
-      window.parent.postMessage(messageData, "*");
-    }
-    setIsExplanationOpen(!isExplanationOpen);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const handlePopover = useCallback(
+    getPopoverHandler(
+      explanation,
+      isExplanationOpen,
+      setIsExplanationOpen,
+      title,
+      chartExtras,
+    ),
+    [explanation, isExplanationOpen, setIsExplanationOpen, title, chartExtras],
+  );
 
-  const handleMessage = event => {
-    if (
-      event.source === window.parent &&
-      event.data.lighthouse &&
-      event.data.lighthouse?.type === "ChartExplainer"
-    ) {
-      const {
-        dashboard_id: dashboardId,
-        id,
-        explanation: chartExplanation,
-      } = event.data.lighthouse.payload;
-
-      if (
-        chartExtras &&
-        chartExtras["dashboard_id"] === dashboardId &&
-        chartExtras["id"] === id
-      ) {
-        setExplanation(chartExplanation);
-      }
-    }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const handleMessage = useCallback(
+    getMessageHandler(setExplanation, chartExtras)(event),
+    [setExplanation, chartExtras],
+  );
 
   useEffect(() => {
     window.addEventListener("message", handleMessage);
@@ -84,68 +72,6 @@ const LegendCaption = ({
       window.removeEventListener("message", handleMessage);
     };
   });
-
-  const explanationPopover = (
-    <div
-      style={{
-        display: "flex",
-        padding: "16px",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        alignSelf: "stretch",
-        borderRadius: "4px",
-        background: "var(--background-dark, #023D67)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          width: "100%",
-          alignItems: "baseline",
-        }}
-      >
-        <span
-          style={{
-            flex: "1 0 0",
-            color: "var(--text-dark-header, #FFF)",
-            fontFamily: "Lato",
-            fontSize: "19px",
-            fontStyle: "normal",
-            fontWeight: 600,
-            lineHeight: "28.5px",
-            marginBottom: "12px",
-          }}
-        >
-          <img
-            src="app/assets/img/faros.svg"
-            alt="faros"
-            style={{ width: "24px", height: "24px", marginRight: "12px" }}
-          />
-          <span style={{ verticalAlign: "text-bottom" }}>Chart Explainer</span>
-        </span>
-        <img
-          src="app/assets/img/close.svg"
-          alt="x"
-          style={{ width: "20px", height: "20px" }}
-          onClick={handlePopover}
-        />
-      </div>
-      <span
-        style={{
-          alignSelf: "stretch",
-          color: "var(--text-dark-body-subtle, #8EBFD6)",
-          fontFamily: "Lato",
-          fontSize: "16px",
-          fontStyle: "normal",
-          fontWeight: 400,
-          lineHeight: "24px",
-        }}
-      >
-        {explanation}
-      </span>
-    </div>
-  );
 
   return (
     <LegendCaptionRoot className={className} data-testid="legend-caption">
@@ -177,7 +103,10 @@ const LegendCaption = ({
             targetOffsetY={30}
             hasArrow
           >
-            {explanationPopover}
+            <ChartExplanationPopover
+              explanation={explanation}
+              handlePopover={handlePopover}
+            />
           </PopoverWithTrigger>
         )}
         {description && (
