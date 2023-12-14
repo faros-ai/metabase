@@ -28,8 +28,7 @@ export function getMessageHandler(setExplanation, chartExtras) {
   return event => {
     if (
       event.source === window.parent &&
-      event.data.lighthouse &&
-      event.data.lighthouse?.type === "ChartExplainer"
+      event.data?.lighthouse?.type === "ChartExplainer"
     ) {
       const {
         dashboard_id: dashboardId,
@@ -38,8 +37,7 @@ export function getMessageHandler(setExplanation, chartExtras) {
       } = event.data.lighthouse.payload;
 
       if (
-        chartExtras &&
-        chartExtras["dashboard_id"] === dashboardId &&
+        chartExtras?.dashboard_id === dashboardId &&
         chartExtras["id"] === id
       ) {
         setExplanation(chartExplanation);
