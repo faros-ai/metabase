@@ -27,6 +27,7 @@ export function getPopoverHandler(
 export function getMessageHandler(setExplanation, chartExtras) {
   return event => {
     if (
+      event &&
       event.source === window.parent &&
       event.data?.lighthouse?.type === "ChartExplainer"
     ) {
