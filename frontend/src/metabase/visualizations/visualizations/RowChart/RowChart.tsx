@@ -3,7 +3,11 @@ import { t } from "ttag";
 
 import _ from "underscore";
 import { GRAPH_DATA_SETTINGS } from "metabase/visualizations/lib/settings/graph";
-import { DatasetData, VisualizationSettings } from "metabase-types/api";
+import {
+  DashboardOrderedCard,
+  DatasetData,
+  VisualizationSettings,
+} from "metabase-types/api";
 
 import {
   getChartColumns,
@@ -45,6 +49,7 @@ import {
 import { BarData } from "metabase/visualizations/shared/components/RowChart/types";
 import { FontStyle } from "metabase/visualizations/shared/types/measure-text";
 import { extractRemappedColumns } from "metabase/visualizations";
+import { getChartExtras } from "metabase/visualizations/lib/lighthouse_utils";
 import { isDimension, isMetric } from "metabase-lib/types/utils/isa";
 import { getChartWarnings } from "./utils/warnings";
 import {
@@ -78,6 +83,7 @@ const RowChartRenderer = ExplicitSize({
 ));
 
 interface RowChartVisualizationProps {
+  dashcard: DashboardOrderedCard & { justAdded?: boolean };
   className: string;
   width: number;
   height: number;
@@ -101,6 +107,7 @@ interface RowChartVisualizationProps {
 }
 
 const RowChartVisualization = ({
+  dashcard,
   card,
   className,
   settings,
@@ -271,6 +278,11 @@ const RowChartVisualization = ({
       });
   }, [fontFamily]);
 
+  const chartExtras =
+    dashcard && rawMultipleSeries && rawMultipleSeries[0]["data"]
+      ? getChartExtras(dashcard, rawMultipleSeries, settings)
+      : undefined;
+
   return (
     <RowVisualizationRoot className={className} isQueryBuilder={isQueryBuilder}>
       {hasTitle && (
@@ -280,6 +292,7 @@ const RowChartVisualization = ({
           icon={headerIcon}
           actionButtons={actionButtons}
           onSelectTitle={canSelectTitle ? openQuestion : undefined}
+          chartExtras={chartExtras}
         />
       )}
       <RowChartLegendLayout
