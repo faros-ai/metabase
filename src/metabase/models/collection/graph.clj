@@ -97,14 +97,14 @@
 
 (defn- collection-permission-graph
   "Return the permission graph for the collections with id in `collection-ids` and the root collection.
-   If `group-id` is provided, only return the permission graph for that group. Otherwise, return for all groups."
+   If `group-ids` is provided, only return the permission graph for those groups. Otherwise, return for all groups."
   ([collection-ids] (collection-permission-graph collection-ids nil nil))
   ([collection-ids collection-namespace] (collection-permission-graph collection-ids collection-namespace nil))
-  ([collection-ids collection-namespace group-id]
+  ([collection-ids collection-namespace group-ids]
    (let [group-id->perms (group-id->permissions-set)
-         groups-to-process (if group-id
-                             [group-id]
-                             (db/select-ids PermissionsGroup))]
+         groups-to-process (if group-ids
+                               (db/select-ids PermissionsGroup {:where [:in :id (set group-ids)]})
+                               (db/select-ids PermissionsGroup))]
      {:revision (c-perm-revision/latest-id)
       :groups   (into {} (for [gid groups-to-process]
                            {gid (group-permissions-graph collection-namespace
@@ -130,16 +130,16 @@
   ([collection-namespace :- (s/maybe su/KeywordOrString)]
    (graph collection-namespace nil nil))
 
-  ([collection-namespace :- (s/maybe su/KeywordOrString) group-id :- (s/maybe s/Int)]
-   (graph collection-namespace group-id nil))
+  ([collection-namespace :- (s/maybe su/KeywordOrString) group-ids :- (s/maybe [s/Int])]
+   (graph collection-namespace group-ids nil))
 
-  ([collection-namespace :- (s/maybe su/KeywordOrString) group-id :- (s/maybe s/Int) root-collection-id :- (s/maybe s/Int)]
+  ([collection-namespace :- (s/maybe su/KeywordOrString) group-ids :- (s/maybe [s/Int]) root-collection-id :- (s/maybe s/Int)]
    (db/transaction
      (-> collection-namespace
          (#(if root-collection-id
            (descendant-collection-ids % root-collection-id)
            (non-personal-collection-ids %)))
-         (collection-permission-graph collection-namespace group-id)))))
+         (collection-permission-graph collection-namespace group-ids)))))
 
 ;;; -------------------------------------------------- Update Graph --------------------------------------------------
 
@@ -175,9 +175,11 @@
    (update-graph! nil new-graph))
 
   ([collection-namespace :- (s/maybe su/KeywordOrString), new-graph :- PermissionsGraph]
-   (let [old-graph          (graph collection-namespace)
+   (let [new-perms          (:groups new-graph)
+         updated-groups     (keys new-perms)
+         ;; filter out groups not in update
+         old-graph          (graph collection-namespace updated-groups)
          old-perms          (:groups old-graph)
-         new-perms          (:groups new-graph)
          ;; filter out any groups not in the old graph
          new-perms          (select-keys new-perms (keys old-perms))
          ;; filter out any collections not in the old graph

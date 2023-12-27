@@ -977,7 +977,7 @@
 
   (api/check-superuser)
 
-  (graph/graph namespace group_id root_collection_id))
+  (graph/graph namespace (when group_id [group_id]) root_collection_id))
 
 (def CollectionID "an id for a [[Collection]]."
   [pos-int? {:title "Collection ID"}])
@@ -1017,13 +1017,18 @@
 (api/defendpoint-schema PUT "/graph"
   "Do a batch update of Collections Permissions by passing in a modified graph.
   Will overwrite parts of the graph that are present in the request, and leave the rest unchanged."
-  [:as {{:keys [namespace], :as body} :body}]
-  {body      su/Map
-   namespace (s/maybe su/NonBlankString)}
+  [:as {{:keys [namespace, return_changes_only], :as body} :body}]
+  {body                su/Map
+   namespace           (s/maybe su/NonBlankString)
+   return_changes_only (s/maybe s/Bool)}
   (api/check-superuser)
-  (->> (dissoc body :namespace)
-       decode-graph
-       (graph/update-graph! namespace))
-  (graph/graph namespace))
+
+  (let [updates(-> (dissoc body :namespace :return_changes_only) decode-graph)]
+
+  (graph/update-graph! namespace updates)
+
+  (if return_changes_only
+      {:revision (c-perm-revision/latest-id), :groups (:groups updates)}
+      (graph/graph namespace))))
 
 (api/define-routes)
