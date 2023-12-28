@@ -406,9 +406,13 @@
 #_{:clj-kondo/ignore [:deprecated-var]}
 (api/defendpoint-schema DELETE "/:id"
   "Disable a `User`.  This does not remove the `User` from the DB, but instead disables their account."
-  [id]
+  [id purge]
+  {purge (s/maybe su/BooleanString)}
   (api/check-superuser)
-  (api/check-500 (db/update! User id, :is_active false))
+  (let [purge? (Boolean/parseBoolean purge)]
+    (if purge?
+      (api/check-500 (t2/delete! User :id id))
+      (api/check-500 (db/update! User id, :is_active false))))
   {:success true})
 
 ;;; +----------------------------------------------------------------------------------------------------------------+
