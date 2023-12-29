@@ -42,7 +42,7 @@
     (catch ExceptionInfo e
       (log/error e "Error creating new SSO user")
       (throw (ex-info (trs "Error creating new SSO user")
-                      {:user user})))))
+                      {})))))
 
 (defn fetch-and-update-login-attributes!
   "Update `:first_name`, `:last_name`, and `:login_attributes` for the user at `email`.
