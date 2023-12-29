@@ -6,7 +6,7 @@
   (:require
    [cheshire.core :as json]
    [clojure.string :as str]
-   [compojure.core :refer [GET POST PUT]]
+   [compojure.core :refer [DELETE GET POST PUT]]
    [honey.sql.helpers :as sql.helpers]
    [malli.core :as mc]
    [malli.transform :as mtx]
@@ -39,7 +39,8 @@
    [metabase.util.schema :as su]
    [schema.core :as s]
    [toucan.db :as db]
-   [toucan.hydrate :refer [hydrate]]))
+   [toucan.hydrate :refer [hydrate]]
+   [toucan2.core :as t2]))
 
 (set! *warn-on-reflection* true)
 
@@ -955,6 +956,21 @@
   ;; finally, return the updated object
   (-> (db/select-one Collection :id id)
       (hydrate :parent_id)))
+
+#_{:clj-kondo/ignore [:deprecated-var]}
+(api/defendpoint-schema DELETE "/:id"
+  "Delete an empty collection"
+  [id]
+  (api/check-superuser)
+  (let [collection (api/read-check Collection id)]
+    (binding [mw.offset-paging/*limit* 1]
+      (let [children (collection-children collection {:archived? false})
+            archived-children (collection-children collection {:archived? true})]
+        ;; only delete if the collection is empty to prevent corrupting location of descendants
+        (api/check-400 (and (zero? (:total children))
+                            (zero? (:total archived-children))))
+        (api/check-500 (t2/delete! Collection :id id))
+        {:success true}))))
 
 ;;; ------------------------------------------------ GRAPH ENDPOINTS -------------------------------------------------
 
