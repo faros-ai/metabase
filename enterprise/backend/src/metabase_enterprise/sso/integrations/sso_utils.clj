@@ -13,6 +13,7 @@
    [schema.core :as s]
    [toucan.db :as db])
   (:import
+   (clojure.lang ExceptionInfo)
    (java.net URI)
    (java.util UUID)))
 
@@ -32,11 +33,15 @@
   to refactor the `core_user` table structure and the function used to populate it so that the enterprise product can
   reuse it"
   [user :- UserAttributes]
-  (u/prog1 (db/insert! User (merge user {:password (str (UUID/randomUUID))}))
-    (log/info (trs "New SSO user created: {0} ({1})" (:common_name <>) (:email <>)))
-    ;; send an email to everyone including the site admin if that's set
-    (when (sso-settings/send-new-sso-user-admin-email?)
-      (messages/send-user-joined-admin-notification-email! <>, :google-auth? true))))
+  (try
+    (u/prog1 (db/insert! User (merge user {:password (str (UUID/randomUUID))}))
+      (log/info (trs "New SSO user created: {0} ({1})" (:common_name <>) (:email <>)))
+      ;; send an email to everyone including the site admin if that's set
+      (when (sso-settings/send-new-sso-user-admin-email?)
+        (messages/send-user-joined-admin-notification-email! <>, :google-auth? true)))
+    (catch ExceptionInfo e
+      (log/error e "Error creating new SSO user")
+      (throw (ex-info (trs "Error creating new SSO user") {})))))
 
 (defn fetch-and-update-login-attributes!
   "Update `:first_name`, `:last_name`, and `:login_attributes` for the user at `email`.
