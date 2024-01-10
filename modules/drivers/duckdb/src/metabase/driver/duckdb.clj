@@ -5,7 +5,7 @@
             [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
             [metabase.driver.sql-jdbc.sync :as sql-jdbc.sync]
             [metabase.driver.sql.query-processor :as sql.qp]
-            [metabase.util.honeysql-extensions :as hx])
+            [metabase.util.honey-sql-2 :as h2x])
   (:import [java.sql ResultSet Types]))
 
 (set! *warn-on-reflection* true)
@@ -15,6 +15,8 @@
 ;;
 ;; Base driver configuration
 ;;
+
+(defmethod sql.qp/honey-sql-version :duckdb [_driver] 2)
 
 (defmethod driver/supports? [:duckdb :actions] [_ _] false)
 (defmethod driver/supports? [:duckdb :actions/custom] [_ _] false)
@@ -121,71 +123,71 @@
 ;; Query processor
 ;;
 
-(defn- date-part [unit x] (hx/call :date_part (hx/literal unit) x))
-(defn- date-trunc [unit x] (hx/call :date_trunc (hx/literal unit) x))
-(defn- date-diff [unit a b] (hx/call :date_diff (hx/literal unit) a b))
+(defn- date-part [unit x] [:date_part (h2x/literal unit) x])
+(defn- date-trunc [unit x] [:date_trunc (h2x/literal unit) x])
+(defn- date-diff [unit a b] [:date_diff (h2x/literal unit) a b])
 
 (defmethod sql.qp/add-interval-honeysql-form :duckdb
   [driver hsql-form amount unit]
   (condp = unit
     :quarter (recur driver hsql-form (* amount 3) :month)
     :week (recur driver hsql-form (* amount 7) :day)
-    (hx/+ (hx/->timestamp hsql-form) (hx/raw (format "(INTERVAL '%d' %s)" (int amount) (name unit))))))
+    (h2x/+ (h2x/->timestamp hsql-form) [:raw (format "(INTERVAL '%d' %s)" (int amount) (name unit))])))
 
 (defmethod sql.qp/date [:duckdb :default]         [_ _ expr] expr)
 (defmethod sql.qp/date [:duckdb :minute]          [_ _ expr] (date-trunc :minute expr))
-(defmethod sql.qp/date [:duckdb :minute-of-hour]  [_ _ expr] (hx/call :minute expr))
 (defmethod sql.qp/date [:duckdb :hour]            [_ _ expr] (date-trunc :hour expr))
-(defmethod sql.qp/date [:duckdb :hour-of-day]     [_ _ expr] (hx/call :hour expr))
 (defmethod sql.qp/date [:duckdb :day]             [_ _ expr] (date-trunc :day expr))
-(defmethod sql.qp/date [:duckdb :day-of-month]    [_ _ expr] (hx/call :day expr))
-(defmethod sql.qp/date [:duckdb :day-of-year]     [_ _ expr] (hx/call :dayofyear expr))
-
-(defmethod sql.qp/date [:duckdb :day-of-week]
-  [_ _ expr]
-  (sql.qp/adjust-day-of-week :duckdb (hx/call :dayofweek expr)))
-
 (defmethod sql.qp/date [:duckdb :week]
   [_ _ expr]
   (sql.qp/adjust-start-of-week :duckdb (partial date-trunc :week) expr))
-
 (defmethod sql.qp/date [:duckdb :month]           [_ _ expr] (date-trunc :month expr))
-(defmethod sql.qp/date [:duckdb :month-of-year]   [_ _ expr] (hx/call :month expr))
 (defmethod sql.qp/date [:duckdb :quarter]         [_ _ expr] (date-trunc :quarter expr))
-(defmethod sql.qp/date [:duckdb :quarter-of-year] [_ _ expr] (hx/call :quarter expr))
 (defmethod sql.qp/date [:duckdb :year]            [_ _ expr] (date-trunc :year expr))
+
+(defmethod sql.qp/date [:duckdb :minute-of-hour]  [_ _ expr] [:minute expr])
+(defmethod sql.qp/date [:duckdb :hour-of-day]     [_ _ expr] [:hour expr])
+(defmethod sql.qp/date [:duckdb :day-of-month]    [_ _ expr] [:day expr])
+(defmethod sql.qp/date [:duckdb :day-of-year]     [_ _ expr] [:dayofyear expr])
+
+;; TODO: dayofweek is 0-indexed, but Metabase wants 1-indexed. Adjust?
+(defmethod sql.qp/date [:duckdb :day-of-week]
+  [_ _ expr]
+  (sql.qp/adjust-day-of-week :duckdb [:dayofweek expr]))
+
+(defmethod sql.qp/date [:duckdb :month-of-year]   [_ _ expr] [:month expr])
+(defmethod sql.qp/date [:duckdb :quarter-of-year] [_ _ expr] [:quarter expr])
 
 (defmethod sql.qp/datetime-diff [:duckdb :year]
   [driver _unit x y]
-  (hx// (sql.qp/datetime-diff driver :month x y) 12))
+  (h2x// (sql.qp/datetime-diff driver :month x y) 12))
 
 (defmethod sql.qp/datetime-diff [:duckdb :quarter]
   [driver _unit x y]
-  (hx// (sql.qp/datetime-diff driver :month x y) 3))
+  (h2x// (sql.qp/datetime-diff driver :month x y) 3))
 
 (defmethod sql.qp/datetime-diff [:duckdb :month]
   [_driver _unit x y]
-  (hx/+ (date-diff :month x y)
+  (h2x/+ (date-diff :month x y)
         ;; date_diff counts month boundaries not whole months, so we need to adjust
         ;; if x<y but x>y in the month calendar then subtract one month
         ;; if x>y but x<y in the month calendar then add one month
-        (hx/call
-         :case
-         (hx/call :and (hx/call :< x y) (hx/call :> (date-part :day x) (date-part :day y))) -1
-         (hx/call :and (hx/call :> x y) (hx/call :< (date-part :day x) (date-part :day y))) 1
-         :else 0)))
+        [:case
+         [:and [:< x y] [:> (date-part :day x) (date-part :day y)]] -1
+         [:and [:> x y] [:< (date-part :day x) (date-part :day y)]] 1
+         :else 0]))
 
-(defmethod sql.qp/datetime-diff [:duckdb :week] [_driver _unit x y] (hx// (date-diff :day x y) 7))
+(defmethod sql.qp/datetime-diff [:duckdb :week] [_driver _unit x y] (h2x// (date-diff :day x y) 7))
 (defmethod sql.qp/datetime-diff [:duckdb :day] [_driver _unit x y] (date-diff :day x y))
-(defmethod sql.qp/datetime-diff [:duckdb :hour] [_driver _unit x y] (hx// (date-diff :millisecond x y) 3600000))
+(defmethod sql.qp/datetime-diff [:duckdb :hour] [_driver _unit x y] (h2x// (date-diff :millisecond x y) 3600000))
 (defmethod sql.qp/datetime-diff [:duckdb :minute] [_driver _unit x y] (date-diff :minute x y))
 (defmethod sql.qp/datetime-diff [:duckdb :second] [_driver _unit x y] (date-diff :second x y))
 
 (defmethod sql.qp/unix-timestamp->honeysql [:duckdb :seconds]
   [_ _ expr]
-  (hx/call :epoch_ms (hx/cast :bigint (hx/* expr 1000))))
+  [:epoch_ms (h2x/cast :bigint (h2x/* expr 1000))])
 
 ;; Extracts the first group of the match
 (defmethod sql.qp/->honeysql [:duckdb :regex-match-first]
   [driver [_ arg pattern]]
-  (hx/call :regexp_extract (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver pattern) 1))
+  [:regexp_extract (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver pattern) [:inline 1]])
