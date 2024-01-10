@@ -19,6 +19,12 @@
   driver/dispatch-on-initialized-driver
   :hierarchy #'driver/hierarchy)
 
+(defmulti table-types
+  "Return list of table types to be fetched from JDBC getTables()."
+  {:arglists '([driver])}
+  driver/dispatch-on-initialized-driver
+  :hierarchy #'driver/hierarchy)
+
 (defmulti excluded-schemas
   "Return set of string names of schemas to skip syncing tables from."
   {:arglists '([driver])}
