@@ -61,7 +61,7 @@ const LegendCaption = ({
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMessage = useCallback(
-    getMessageHandler(setExplanation, chartExtras)(event),
+    getMessageHandler(setExplanation, chartExtras),
     [setExplanation, chartExtras],
   );
 
@@ -71,7 +71,7 @@ const LegendCaption = ({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  });
+  }, [handleMessage]);
 
   return (
     <LegendCaptionRoot className={className} data-testid="legend-caption">
