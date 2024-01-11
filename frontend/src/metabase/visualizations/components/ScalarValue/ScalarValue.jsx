@@ -93,7 +93,7 @@ export const ScalarTitle = ({
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMessage = useCallback(
-    getMessageHandler(setExplanation, chartExtras)(event),
+    getMessageHandler(setExplanation, chartExtras),
     [setExplanation, chartExtras],
   );
 
@@ -103,7 +103,7 @@ export const ScalarTitle = ({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  });
+  }, [handleMessage]);
 
   return (
     <ScalarTitleContainer>
