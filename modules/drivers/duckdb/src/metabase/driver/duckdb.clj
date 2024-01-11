@@ -1,12 +1,16 @@
 (ns metabase.driver.duckdb
   (:require [metabase.config :as config]
             [metabase.driver :as driver]
+            [metabase.driver.common :as driver.common]
             [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
             [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
             [metabase.driver.sql-jdbc.sync :as sql-jdbc.sync]
             [metabase.driver.sql.query-processor :as sql.qp]
+            [metabase.util.date-2 :as u.date]
             [metabase.util.honey-sql-2 :as h2x])
-  (:import [java.sql ResultSet Types]))
+  (:import
+    (java.sql ResultSet Types)
+    (java.time LocalDate LocalTime OffsetTime)))
 
 (set! *warn-on-reflection* true)
 
@@ -22,6 +26,7 @@
 (defmethod driver/supports? [:duckdb :actions/custom] [_ _] false)
 (defmethod driver/supports? [:duckdb :datetime-diff] [_ _] true)
 (defmethod driver/supports? [:duckdb :foreign-keys] [_ _] (not config/is-test?))
+(defmethod driver/supports? [:duckdb :native-parameters] [_ _] false)
 (defmethod driver/supports? [:duckdb :now] [_ _] true)
 (defmethod driver/supports? [:duckdb :set-timezone] [_ _] false)
 
@@ -150,10 +155,11 @@
 (defmethod sql.qp/date [:duckdb :day-of-month]    [_ _ expr] [:day expr])
 (defmethod sql.qp/date [:duckdb :day-of-year]     [_ _ expr] [:dayofyear expr])
 
-;; TODO: dayofweek is 0-indexed, but Metabase wants 1-indexed. Adjust?
 (defmethod sql.qp/date [:duckdb :day-of-week]
-  [_ _ expr]
-  (sql.qp/adjust-day-of-week :duckdb [:dayofweek expr]))
+  [driver _ expr]
+  (sql.qp/adjust-day-of-week driver
+                             (h2x/+ [:dayofweek expr] 1)
+                             (driver.common/start-of-week-offset-for-day :sunday)))
 
 (defmethod sql.qp/date [:duckdb :month-of-year]   [_ _ expr] [:month expr])
 (defmethod sql.qp/date [:duckdb :quarter-of-year] [_ _ expr] [:quarter expr])
@@ -186,6 +192,21 @@
 (defmethod sql.qp/unix-timestamp->honeysql [:duckdb :seconds]
   [_ _ expr]
   [:epoch_ms (h2x/cast :bigint (h2x/* expr 1000))])
+
+;; The JDBC driver cannot set DATE/TIME JDBC types in a prepared statement,
+;; so convert these to a string representation instead.
+(defmethod sql.qp/->honeysql [:duckdb LocalDate]
+  [_ ^LocalDate t]
+  (h2x/cast "date" (u.date/format-sql t)))
+
+(defmethod sql.qp/->honeysql [:duckdb LocalTime]
+  [_ ^LocalTime t]
+  (h2x/cast "time" (u.date/format-sql t)))
+
+;; Should this be timetz? That causes test failures.
+(defmethod sql.qp/->honeysql [:duckdb OffsetTime]
+  [_ ^OffsetTime t]
+  (h2x/cast "time" (u.date/format-sql t)))
 
 ;; Extracts the first group of the match
 (defmethod sql.qp/->honeysql [:duckdb :regex-match-first]
