@@ -1,6 +1,5 @@
 (ns metabase.public-settings.premium-features
   "Settings related to checking premium token validity and which premium features it allows."
-  (:require
   (:require 
    [clj-time
     [core :as t]
