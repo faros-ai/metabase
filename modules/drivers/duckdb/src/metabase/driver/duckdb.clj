@@ -137,7 +137,7 @@
   (condp = unit
     :quarter (recur driver hsql-form (* amount 3) :month)
     :week (recur driver hsql-form (* amount 7) :day)
-    (h2x/+ (h2x/->timestamp hsql-form) [:raw (format "(INTERVAL '%d' %s)" (int amount) (name unit))])))
+    (h2x/+ hsql-form [:raw (format "(INTERVAL '%d' %s)" (int amount) (name unit))])))
 
 (defmethod sql.qp/date [:duckdb :default]         [_ _ expr] expr)
 (defmethod sql.qp/date [:duckdb :minute]          [_ _ expr] (date-trunc :minute expr))
