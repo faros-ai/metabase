@@ -154,7 +154,6 @@ class DashboardHeaderContainer extends Component {
     hideAddParameterPopover: PropTypes.func,
     addParameter: PropTypes.func,
     isHomepageDashboard: PropTypes.bool,
-
     enableDashboardSummarizer: PropTypes.bool,
   };
 

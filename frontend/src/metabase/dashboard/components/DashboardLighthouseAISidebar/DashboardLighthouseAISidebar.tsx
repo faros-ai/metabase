@@ -5,6 +5,7 @@ import { isEqual } from "underscore";
 
 import { setDashboardSummary } from "metabase/dashboard/actions";
 import { useDispatch, useSelector } from "metabase/lib/redux";
+import { Center, Loader } from "metabase/ui";
 import type { DashCardDataMap, Dashboard } from "metabase-types/api";
 import type {
   DashboardSummary,
@@ -28,16 +29,12 @@ import {
 
 type DashboardAttributeType = string | number | null | boolean;
 
-interface DashboardExplainerSidebarProps {
+interface DashboardLighthouseAISidebarProps {
   dashboard: Dashboard;
   dashcardData: DashCardDataMap;
   selectedTabId: SelectedTabId;
   parameterValues: object;
   setDashboardAttribute: (name: string, value: DashboardAttributeType) => void;
-}
-
-interface DashboardSummaryDisplayProps {
-  dashboardSummary: DashboardSummary;
 }
 
 const UNSUPPORTED = "Dashboard Summarizer not supported in non-embedded mode.";
@@ -101,15 +98,14 @@ function getMessageHandler(
   };
 }
 
-function DashboardSummaryDisplay({
-  dashboardSummary,
-}: DashboardSummaryDisplayProps) {
+function DashboardSummaryDisplay({ insights, text }: DashboardSummary) {
+  const hasInsights = insights && insights.length > 0;
   return (
     <div>
-      <DescriptionHeader>Summary</DescriptionHeader>
-      {dashboardSummary.insights && (
+      <DescriptionHeader>Dashboard Summary</DescriptionHeader>
+      {hasInsights && (
         <ol style={{ listStyleType: "decimal", paddingLeft: "10px" }}>
-          {dashboardSummary.insights?.map((insight, insightIndex) => {
+          {insights?.map((insight, insightIndex) => {
             return (
               <li
                 key={`dashboard-summary-insight-${insightIndex}`}
@@ -117,7 +113,7 @@ function DashboardSummaryDisplay({
               >
                 {insight.title && <InsightTitle>{insight.title}</InsightTitle>}
                 <InsightDescription>{insight.description}</InsightDescription>
-                {insight.sourceCharts && (
+                {insight.sourceCharts && insight.sourceCharts.length > 0 && (
                   <InsightReferences>
                     Sources:
                     {insight.sourceCharts.map((title, chartIndex) => {
@@ -138,11 +134,13 @@ function DashboardSummaryDisplay({
           })}
         </ol>
       )}
-      {!dashboardSummary.insights && (dashboardSummary.text ?? FAILED)}
-      <Disclaimer>
-        Lighthouse AI may display inaccurate info, so double-check its
-        responses.
-      </Disclaimer>
+      {!hasInsights && (text ?? FAILED)}
+      {(hasInsights || text) && (
+        <Disclaimer>
+          Lighthouse AI may display inaccurate info, so double-check its
+          responses.
+        </Disclaimer>
+      )}
     </div>
   );
 }
@@ -152,7 +150,7 @@ export function DashboardLighthouseAISidebar({
   dashcardData,
   selectedTabId,
   parameterValues,
-}: DashboardExplainerSidebarProps) {
+}: DashboardLighthouseAISidebarProps) {
   const dashboardSummary = useSelector(
     state => state.dashboard.dashboardSummaries[selectedTabId ?? -1],
   );
@@ -234,8 +232,16 @@ export function DashboardLighthouseAISidebar({
     <DashboardInfoSidebarRoot data-testid="sidebar-right">
       <ContentSection>
         {!isReady && statusMessage}
+        {!isReady && (statusMessage === LOADING || statusMessage === RUNNING) && (
+          <Center>
+            <Loader size={"xl"} />
+          </Center>
+        )}
         {isReady && (
-          <DashboardSummaryDisplay dashboardSummary={dashboardSummary} />
+          <DashboardSummaryDisplay
+            insights={dashboardSummary.insights}
+            text={dashboardSummary.text}
+          />
         )}
       </ContentSection>
     </DashboardInfoSidebarRoot>
