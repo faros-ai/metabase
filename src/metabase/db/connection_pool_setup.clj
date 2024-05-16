@@ -58,7 +58,8 @@
   below (jump to the 'Simple advice on Connection testing' section.)"
   (merge
    {"idleConnectionTestPeriod" 60
-    "connectionCustomizerClassName" (.getName DbActivityTracker)}
+    "connectionCustomizerClassName" (.getName DbActivityTracker)
+    "maxIdleTimeExcessConnections" (* 5 60)}
    ;; only merge in `max-pool-size` if it's actually set, this way it doesn't override any things that may have been
    ;; set in `c3p0.properties`
    (when-let [max-pool-size (config/config-int :mb-application-db-max-connection-pool-size)]
