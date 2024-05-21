@@ -71,6 +71,14 @@ function BulkActions({
                   data-metabase-event={`${ANALYTICS_CONTEXT};Bulk Actions;Archive Items`}
                 >{t`Archive`}</CardButton>
               </CardSide>
+              <CardSide>
+                <CardButton
+                  medium
+                  dark
+                  onClick={onCopy}
+                  data-metabase-event={`${ANALYTICS_CONTEXT};Bulk Actions;Copy Items`}
+                >{t`Copy to workspace`}</CardButton>
+              </CardSide>
             </ToastCard>
           </BulkActionsToast>
         )}
