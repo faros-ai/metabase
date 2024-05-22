@@ -33,6 +33,10 @@ function BulkActions({
   const canArchive = selected.every(item => canArchiveItem(item, collection));
   const isVisible = selected.length > 0;
 
+  const onCopyToAnotherWorkspace = () => {
+    alert("Copy to another workspace");
+  };
+
   return (
     <>
       <Motion
@@ -75,7 +79,7 @@ function BulkActions({
                 <CardButton
                   medium
                   dark
-                  onClick={onCopy}
+                  onClick={onCopyToAnotherWorkspace}
                   data-metabase-event={`${ANALYTICS_CONTEXT};Bulk Actions;Copy Items`}
                 >{t`Copy to workspace`}</CardButton>
               </CardSide>
