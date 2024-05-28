@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Motion, spring } from "react-motion";
 import { t, msgid, ngettext } from "ttag";
 import _ from "underscore";
@@ -32,10 +32,36 @@ function BulkActions({
   const canMove = selected.every(item => canMoveItem(item, collection));
   const canArchive = selected.every(item => canArchiveItem(item, collection));
   const isVisible = selected.length > 0;
+  const embedded = window.parent !== window;
 
   const onCopyToAnotherWorkspace = () => {
     alert("Copy to another workspace");
+    const messageData = {
+      pipelines: {
+        type: "DashboardTransfer",
+        payload: {
+          selectedDashboards: selectedItems,
+          shouldStartTransferring: true,
+        },
+      },
+    };
+    window.postMessage(messageData, "*");
   };
+
+  useEffect(() => {
+    if (embedded) {
+      const messageData = {
+        pipelines: {
+          type: "DashboardTransfer",
+          payload: {
+            selectedDashboards: selectedItems,
+          },
+        },
+      };
+
+      window.postMessage(messageData, "*");
+    }
+  }, [selectedItems, embedded]);
 
   return (
     <>
