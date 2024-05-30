@@ -45,7 +45,7 @@ function BulkActions({
         },
       },
     };
-    window.postMessage(messageData, "*");
+    window.parent.postMessage(messageData, "*");
   };
 
   useEffect(() => {
@@ -59,7 +59,7 @@ function BulkActions({
         },
       };
 
-      window.postMessage(messageData, "*");
+      window.parent.postMessage(messageData, "*");
     }
   }, [selectedItems, embedded]);
 
