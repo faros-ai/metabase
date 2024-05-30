@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { memo, useEffect } from "react";
+import { memo } from "react";
 import { Motion, spring } from "react-motion";
 import { t, msgid, ngettext } from "ttag";
 import _ from "underscore";
@@ -32,35 +32,20 @@ function BulkActions({
   const canMove = selected.every(item => canMoveItem(item, collection));
   const canArchive = selected.every(item => canArchiveItem(item, collection));
   const isVisible = selected.length > 0;
-  const embedded = window.parent !== window;
+  const selectedItemsIds = selected.map(item => item.id);
 
   const onCopyToAnotherWorkspace = () => {
     const messageData = {
       pipelines: {
         type: "DashboardTransfer",
         payload: {
-          selectedDashboards: selected,
+          selectedDashboards: selectedItemsIds,
           shouldStartTransferring: true,
         },
       },
     };
     window.parent.postMessage(messageData, "*");
   };
-
-  useEffect(() => {
-    if (embedded) {
-      const messageData = {
-        pipelines: {
-          type: "DashboardTransfer",
-          payload: {
-            selectedDashboards: selected,
-          },
-        },
-      };
-
-      window.parent.postMessage(messageData, "*");
-    }
-  }, [selected, embedded]);
 
   return (
     <>
@@ -103,10 +88,9 @@ function BulkActions({
               <CardSide>
                 <CardButton
                   medium
-                  dark
+                  purple
                   onClick={onCopyToAnotherWorkspace}
-                  data-metabase-event={`${ANALYTICS_CONTEXT};Bulk Actions;Copy Items`}
-                >{t`Copy to workspace`}</CardButton>
+                >{t`Copy to another workspace`}</CardButton>
               </CardSide>
             </ToastCard>
           </BulkActionsToast>
