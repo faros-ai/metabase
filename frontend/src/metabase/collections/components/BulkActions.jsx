@@ -35,12 +35,11 @@ function BulkActions({
   const embedded = window.parent !== window;
 
   const onCopyToAnotherWorkspace = () => {
-    alert("Copy to another workspace");
     const messageData = {
       pipelines: {
         type: "DashboardTransfer",
         payload: {
-          selectedDashboards: selectedItems,
+          selectedDashboards: selected,
           shouldStartTransferring: true,
         },
       },
@@ -54,14 +53,14 @@ function BulkActions({
         pipelines: {
           type: "DashboardTransfer",
           payload: {
-            selectedDashboards: selectedItems,
+            selectedDashboards: selected,
           },
         },
       };
 
       window.parent.postMessage(messageData, "*");
     }
-  }, [selectedItems, embedded]);
+  }, [selected, embedded]);
 
   return (
     <>
