@@ -15,12 +15,17 @@ driver:
   connection-properties:
     - name: database_file
       display-name: Database file
-      placeholder: /tmp/data.db
+      placeholder: /tmp/database.db
       required: true
       type: string
     - name: additional_database_files
-      display-name: Additional database files to attach
-      placeholder: /tmp/data1.db, /tmp/data2.db
+      display-name: Additional database files
+      description: >-
+        Additional databases to attach to the catalog. This should be a comma
+        separated list of database filepaths. Each database may optionally be
+        assigned an alias by appending its filepath with '::' followed by the
+        alias, e.g., /tmp/database.db::my_alias.
+      placeholder: /tmp/database1.db, /tmp/database2.db::my_alias
       required: false
       type: string
     - name: read_only
