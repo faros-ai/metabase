@@ -51,7 +51,6 @@ function BulkActions({
         type: "DashboardTransfer",
         payload: {
           selectedDashboards,
-          copyButtonClicked: true,
         },
       },
     };
@@ -104,8 +103,8 @@ function BulkActions({
                     }
                     zIndex={99999}
                     color="white"
-                    bg={"brand"}
-                    label="Only dashboards can be copied. Please deselect all the collections."
+                    bg="brand"
+                    label="Only dashboards can be copied. Please deselect all the other items."
                   >
                     <CardButton
                       disabled={nonDashboardsSelected.length > 0}
