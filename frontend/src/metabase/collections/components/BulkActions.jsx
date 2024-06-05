@@ -9,6 +9,8 @@ import { ANALYTICS_CONTEXT } from "metabase/collections/constants";
 import { canArchiveItem, canMoveItem } from "metabase/collections/utils";
 import Modal from "metabase/components/Modal";
 import { CollectionMoveModal } from "metabase/containers/CollectionMoveModal";
+import { useSelector } from "metabase/lib/redux";
+import { Tooltip } from "metabase/ui/components/overlays/Tooltip";
 
 import {
   BulkActionsToast,
@@ -32,15 +34,24 @@ function BulkActions({
   const canMove = selected.every(item => canMoveItem(item, collection));
   const canArchive = selected.every(item => canArchiveItem(item, collection));
   const isVisible = selected.length > 0;
-  const selectedItemsIds = selected.map(item => item.id);
+  const selectedDashboards = selected
+    .filter(item => item.model === "dashboard")
+    .map(item => item.id);
+  const nonDashboardsSelected = selected
+    .filter(item => item.model !== "dashboard")
+    .map(item => item.id);
+
+  const isCopyToWorkspaceEnabled = useSelector(
+    state => state.embed.options.enable_copy_to_workspace,
+  );
 
   const onCopyToAnotherWorkspace = () => {
     const messageData = {
       pipelines: {
         type: "DashboardTransfer",
         payload: {
-          selectedDashboards: selectedItemsIds,
-          shouldStartTransferring: true,
+          selectedDashboards,
+          copyButtonClicked: true,
         },
       },
     };
@@ -85,13 +96,26 @@ function BulkActions({
                   data-metabase-event={`${ANALYTICS_CONTEXT};Bulk Actions;Archive Items`}
                 >{t`Archive`}</CardButton>
               </CardSide>
-              <CardSide>
-                <CardButton
-                  medium
-                  purple
-                  onClick={onCopyToAnotherWorkspace}
-                >{t`Copy to another workspace`}</CardButton>
-              </CardSide>
+              {isCopyToWorkspaceEnabled && selectedDashboards.length > 0 && (
+                <CardSide>
+                  <Tooltip
+                    display={
+                      nonDashboardsSelected.length > 0 ? "block" : "none"
+                    }
+                    zIndex={99999}
+                    color="white"
+                    bg={"brand"}
+                    label="Only dashboards can be copied. Please deselect all the collections."
+                  >
+                    <CardButton
+                      disabled={nonDashboardsSelected.length > 0}
+                      medium
+                      purple
+                      onClick={onCopyToAnotherWorkspace}
+                    >{t`Copy to another workspace`}</CardButton>
+                  </Tooltip>
+                </CardSide>
+              )}
             </ToastCard>
           </BulkActionsToast>
         )}
