@@ -65,7 +65,7 @@ export function initializeEmbedding(store) {
         }
       } else if (e.data.pipelines) {
         if (
-          e.data.pipeplines?.type === "FeatureToggles" &&
+          e.data.pipelines?.type === "FeatureToggles" &&
           e.data.pipelines?.payload
         ) {
           if ("enableCopyToWorkspace" in e.data.pipelines.payload) {
