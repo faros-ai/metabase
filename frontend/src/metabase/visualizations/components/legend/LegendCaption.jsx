@@ -28,12 +28,6 @@ const propTypes = {
   chartExtras: PropTypes.object,
 };
 
-// eslint-disable-next-line no-unused-vars
-function shouldHideDescription(width) {
-  const HIDE_DESCRIPTION_THRESHOLD = 100;
-  return width != null && width < HIDE_DESCRIPTION_THRESHOLD;
-}
-
 const LegendCaption = ({
   className,
   title,
@@ -44,7 +38,6 @@ const LegendCaption = ({
   width,
   chartExtras,
 }) => {
-  // eslint-disable-next-line no-unused-vars
   const enableChartExplainer = useSelector(
     state => state.embed.options.enable_chart_explainer,
   );
