@@ -14,6 +14,8 @@ export interface MarkdownProps
   unstyleLinks?: boolean;
   children: string;
   lineClamp?: number;
+  backgroundColor?: string;
+  borderColor?: string;
 }
 
 const Markdown = ({

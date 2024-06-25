@@ -13,16 +13,10 @@ export const InsightDescription = styled.div`
 
 export const InsightReferences = styled.div`
   margin-top: 0;
-  font-style: italic;
   font-size: 85%;
   color: #666;
 `;
 
 export const ChartTitle = styled.span`
   margin-left: 0.2em;
-`;
-
-export const Disclaimer = styled.div`
-  margin-top: 2em;
-  font-size: 85%;
 `;

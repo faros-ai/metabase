@@ -9,6 +9,11 @@ import type { MarkdownProps } from "./Markdown";
 
 export const MarkdownRoot = styled(getComponent(ReactMarkdown))<MarkdownProps>`
   ${props =>
+    props.backgroundColor && `background-color: ${props.backgroundColor};`}
+
+  ${props => props.borderColor && `border-color: ${props.borderColor};`}
+
+  ${props =>
     props.lineClamp &&
     css`
       display: -webkit-box;

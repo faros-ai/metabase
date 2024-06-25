@@ -37,6 +37,7 @@ import { getPulseFormInput } from "metabase/pulse/selectors";
 import { dismissAllUndo } from "metabase/redux/undo";
 import { getIsNavbarOpen } from "metabase/selectors/app";
 import { getSetting } from "metabase/selectors/settings";
+import { Tooltip as MantimeTooltip } from "metabase/ui/components/overlays";
 import { saveDashboardPdf } from "metabase/visualizations/lib/save-dashboard-pdf";
 
 import { DASHBOARD_PDF_EXPORT_ROOT_ID, SIDEBAR_NAME } from "../../constants";
@@ -490,9 +491,19 @@ class DashboardHeaderContainer extends Component {
 
     if (!isEditing) {
       const lighthouseAITooltip = (
-        <Tooltip
+        <MantimeTooltip
           key="dashboard-lighthouseAI-button"
-          tooltip={t`LighthouseAI\n(experimental)`}
+          label={
+            isShowingDashboardLighthouseAISidebar
+              ? t`Click to hide Dashboard Summary`
+              : t`Click here for an AI-generated summary of the dashboard`
+          }
+          withArrow
+          arrowPosition="center"
+          arrowSize={7}
+          style={{
+            background: "#023D67",
+          }}
         >
           <DashboardHeaderButton
             icon="faros"
@@ -502,8 +513,12 @@ class DashboardHeaderContainer extends Component {
                 ? closeSidebar()
                 : setSidebar({ name: SIDEBAR_NAME.lighthouseAI })
             }
+            style={{
+              border: "1px solid #15B1D7",
+              borderRadius: "6px",
+            }}
           />
-        </Tooltip>
+        </MantimeTooltip>
       );
       buttons.push(
         ...[
@@ -515,7 +530,9 @@ class DashboardHeaderContainer extends Component {
             onDeleteBookmark={deleteBookmark}
             isBookmarked={isBookmarked}
           />,
-          enableDashboardSummarizer ? lighthouseAITooltip : null,
+          enableDashboardSummarizer && window.parent !== window
+            ? lighthouseAITooltip
+            : null,
           <Tooltip key="dashboard-info-button" tooltip={t`More info`}>
             <DashboardHeaderButton
               icon="info"

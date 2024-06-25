@@ -384,8 +384,11 @@ const Error = ({ postMessage }) => (
           justifyContent: "center",
         }}
       >
-        If the problem persists, reach out to our support team for further
-        assistance.
+        <span>
+          If the problem persists, reach out to our{" "}
+          <span style={{ color: "#03749C" }}>support team</span> for further
+          assistance.
+        </span>
       </div>
     </div>
     <Button
