@@ -255,7 +255,10 @@
 ;; Extracts the first group of the match
 (defmethod sql.qp/->honeysql [:duckdb :regex-match-first]
   [driver [_ arg pattern]]
-  [:regexp_extract (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver pattern) [:inline 1]])
+  (let [contains-capturing-group (re-find #"(?<!\\)\(" pattern)]
+    (if contains-capturing-group
+      [:regexp_extract (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver pattern) [:inline 1]]
+      [:regexp_extract (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver pattern)])))
 
 (defmethod sql.qp/->honeysql [:duckdb :convert-timezone]
   [driver [_ arg target-timezone source-timezone]]
