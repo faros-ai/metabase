@@ -385,8 +385,9 @@ const Error = ({ postMessage }) => (
         }}
       >
         <span>
-          If the problem persists, reach out to our{" "}
-          <span style={{ color: "#03749C" }}>support team</span> for further
+          If the problem persists, reach out to
+          <br />
+          our <span style={{ color: "#5CD4EF" }}>support team</span> for further
           assistance.
         </span>
       </div>
@@ -537,7 +538,7 @@ export const ChartExplainerPopover = ({ type, title, chartExtras }) => {
       styles={{
         arrow: { backgroundColor: "#023D67" },
       }}
-      zIndex={3}
+      zIndex={4}
     >
       <Popover.Target>
         <Tooltip
