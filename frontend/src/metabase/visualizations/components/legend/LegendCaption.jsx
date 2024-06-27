@@ -52,7 +52,7 @@ const LegendCaption = ({
         <Ellipsified data-testid="legend-caption-title">{title}</Ellipsified>
       </LegendLabel>
       <LegendRightContent>
-        {enableChartExplainer && (
+        {enableChartExplainer && window.parent !== window && (
           <>
             <ChartExplainerPopover
               type={ChartExplainerType.SUMMARY}

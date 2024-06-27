@@ -92,7 +92,7 @@ export const ScalarTitle = ({
         </Ellipsified>
       </ScalarTitleContent>
       <ScalarDescriptionContainer data-testid="scalar-description">
-        {enableChartExplainer && (
+        {enableChartExplainer && window.parent !== window && (
           <>
             <ChartExplainerPopover
               type={ChartExplainerType.SUMMARY}
