@@ -6,6 +6,8 @@ import { useMemo } from "react";
 import { t } from "ttag";
 
 import { Ellipsified } from "metabase/core/components/Ellipsified";
+import Markdown from "metabase/core/components/Markdown";
+import Tooltip from "metabase/core/components/Tooltip";
 import { useSelector } from "metabase/lib/redux";
 
 import { ChartDescriptionPopover } from "../ChartDescriptionPopover";
@@ -19,6 +21,7 @@ import {
   ScalarValueWrapper,
   ScalarTitleContainer,
   ScalarDescriptionContainer,
+  ScalarDescriptionIcon,
   ScalarDescriptionPlaceholder,
   ScalarTitleContent,
 } from "./ScalarValue.styled";
@@ -74,6 +77,8 @@ export const ScalarTitle = ({
     state => state.embed.options.enable_chart_explainer,
   );
 
+  const hasChartExplainer = enableChartExplainer && window.parent !== window;
+
   return (
     <ScalarTitleContainer data-testid="scalar-title" lines={lines}>
       {/*
@@ -92,7 +97,7 @@ export const ScalarTitle = ({
         </Ellipsified>
       </ScalarTitleContent>
       <ScalarDescriptionContainer data-testid="scalar-description">
-        {enableChartExplainer && window.parent !== window && (
+        {hasChartExplainer && (
           <>
             <ChartExplainerPopover
               type={ChartExplainerType.SUMMARY}
@@ -110,6 +115,21 @@ export const ScalarTitle = ({
               />
             )}
           </>
+        )}
+        {!hasChartExplainer && description && description.length > 0 && (
+          <Tooltip
+            tooltip={
+              <Markdown dark disallowHeading unstyleLinks>
+                {description}
+              </Markdown>
+            }
+            maxWidth="22em"
+          >
+            <ScalarDescriptionIcon
+              name="info_filled"
+              className="hover-child hover-child--smooth"
+            />
+          </Tooltip>
         )}
       </ScalarDescriptionContainer>
     </ScalarTitleContainer>
