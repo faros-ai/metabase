@@ -1,6 +1,7 @@
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useState } from "react";
 
+import { DEFAULT_Z_INDEX } from "metabase/components/Popover/constants";
 import { Icon } from "metabase/core/components/Icon";
 import { Button, Loader } from "metabase/ui";
 import { Popover, Tooltip } from "metabase/ui/components/overlays";
@@ -548,7 +549,7 @@ export const ChartExplainerPopover = ({ type, title, chartExtras }) => {
       styles={{
         arrow: { backgroundColor: "#023D67" },
       }}
-      zIndex={4}
+      zIndex={DEFAULT_Z_INDEX}
     >
       <Popover.Target>
         <Tooltip
