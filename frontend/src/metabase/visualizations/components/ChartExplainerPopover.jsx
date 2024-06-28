@@ -454,6 +454,12 @@ Explanation.propTypes = {
   explanation: PropTypes.string.isRequired,
 };
 
+const isChartLoaded = ({ dashcard, rawSeries }) => {
+  const dashcardReady = dashcard && "card" in dashcard;
+  const rawSeriesReady = rawSeries && rawSeries.every(rs => "card" in rs);
+  return dashcardReady && rawSeriesReady;
+};
+
 const ChartExplainer = ({
   type,
   explanation,
@@ -498,10 +504,11 @@ ChartExplainer.propTypes = {
 };
 
 export const ChartExplainerPopover = ({ type, title, chartExtras }) => {
-  const [explanation, setExplanation] = useState(defaultExplanation);
-  const [error, setError] = useState(false);
   const [popoverOpened, setPopoverOpened] = useState(false);
   const [tooltipOpened, setTooltipOpened] = useState(false);
+
+  const [explanation, setExplanation] = useState(defaultExplanation);
+  const [error, setError] = useState(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const postMessage = useCallback(
@@ -523,13 +530,16 @@ export const ChartExplainerPopover = ({ type, title, chartExtras }) => {
     };
   }, [handleMessage]);
 
+  useEffect(() => {
+    if (popoverOpened && isChartLoaded(chartExtras)) {
+      postMessage();
+    }
+  }, [popoverOpened, postMessage, chartExtras]);
+
   return (
     <Popover
       opened={popoverOpened}
-      onOpen={() => {
-        setTooltipOpened(false);
-        postMessage();
-      }}
+      onOpen={() => setTooltipOpened(false)}
       onChange={setPopoverOpened}
       position="top"
       offset={5}
