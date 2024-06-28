@@ -1,6 +1,8 @@
 import PropTypes from "prop-types";
 
 import { Ellipsified } from "metabase/core/components/Ellipsified";
+import Markdown from "metabase/core/components/Markdown";
+import Tooltip from "metabase/core/components/Tooltip";
 import { useSelector } from "metabase/lib/redux";
 
 import { ChartDescriptionPopover } from "../ChartDescriptionPopover";
@@ -12,6 +14,7 @@ import {
 import LegendActions from "./LegendActions";
 import {
   LegendCaptionRoot,
+  LegendDescriptionIcon,
   LegendLabel,
   LegendLabelIcon,
   LegendRightContent,
@@ -28,6 +31,11 @@ const propTypes = {
   chartExtras: PropTypes.object,
 };
 
+function shouldHideDescription(width) {
+  const HIDE_DESCRIPTION_THRESHOLD = 100;
+  return width != null && width < HIDE_DESCRIPTION_THRESHOLD;
+}
+
 const LegendCaption = ({
   className,
   title,
@@ -42,6 +50,8 @@ const LegendCaption = ({
     state => state.embed.options.enable_chart_explainer,
   );
 
+  const hasChartExplainer = enableChartExplainer && window.parent !== window;
+
   return (
     <LegendCaptionRoot className={className} data-testid="legend-caption">
       {icon && <LegendLabelIcon {...icon} />}
@@ -52,7 +62,7 @@ const LegendCaption = ({
         <Ellipsified data-testid="legend-caption-title">{title}</Ellipsified>
       </LegendLabel>
       <LegendRightContent>
-        {enableChartExplainer && (
+        {hasChartExplainer && (
           <>
             <ChartExplainerPopover
               type={ChartExplainerType.SUMMARY}
@@ -71,7 +81,18 @@ const LegendCaption = ({
             )}
           </>
         )}
-
+        {!hasChartExplainer && description && !shouldHideDescription(width) && (
+          <Tooltip
+            tooltip={
+              <Markdown dark disallowHeading unstyleLinks lineClamp={8}>
+                {description}
+              </Markdown>
+            }
+            maxWidth="22em"
+          >
+            <LegendDescriptionIcon className="hover-child hover-child--smooth" />
+          </Tooltip>
+        )}
         {actionButtons && <LegendActions>{actionButtons}</LegendActions>}
       </LegendRightContent>
     </LegendCaptionRoot>

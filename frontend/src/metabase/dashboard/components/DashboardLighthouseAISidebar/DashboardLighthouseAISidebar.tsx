@@ -396,8 +396,8 @@ function DashboardSummaryLoading() {
             }}
           >
             To see your summary, keep this panel open until it’s finished.
-            Leaving this page will restart the process. Thanks for your
-            patience!
+            Leaving this page will restart the process. <br />
+            Thanks for your patience!
           </div>
         </div>
       </div>
@@ -510,9 +510,10 @@ function DashboardSummaryError({
             }}
           >
             <span>
-              If the problem persists, reach out to our{" "}
-              <span style={{ color: "#03749C" }}>support team</span> for further
-              assistance.
+              If the problem persists, reach out to
+              <br />
+              our <span style={{ color: "#03749C" }}>support team</span> for
+              further assistance.
             </span>
           </div>
         </div>
