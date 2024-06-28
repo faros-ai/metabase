@@ -382,7 +382,7 @@ function DashboardSummaryLoading() {
               fontFamily: "Lato",
               fontStyle: "normal",
               fontWeight: 400,
-              fontSize: "15px",
+              fontSize: "14px",
               lineHeight: "150%",
               display: "flex",
               alignItems: "center",
