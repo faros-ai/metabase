@@ -301,7 +301,8 @@
     "terser": "^5.16.8",
     "trim": "0.0.3",
     "trim-newlines": "3.0.1",
-    "unset-value": "2.0.1"
+    "unset-value": "2.0.1",
+    "ws": "7.5.10"
   },
   "scripts": {
     "build": "yarn build:cljs && yarn build:js",
