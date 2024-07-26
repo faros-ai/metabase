@@ -105,6 +105,10 @@ import dashboard_component from "./dashboard.svg?component";
 import dashboard_source from "./dashboard.svg?source";
 import database_component from "./database.svg?component";
 import database_source from "./database.svg?source";
+import database_warning_component from "./database_warning.svg?component";
+import database_warning_source from "./database_warning.svg?source";
+import delete_table_component from "./delete_table.svg?component";
+import delete_table_source from "./delete_table.svg?source";
 import disconnected_plug_component from "./disconnected_plug.svg?component";
 import disconnected_plug_source from "./disconnected_plug.svg?source";
 import document_component from "./document.svg?component";
@@ -566,6 +570,14 @@ export const Icons = {
   curve: {
     component: curve_component,
     source: curve_source,
+  },
+  database_warning: {
+    component: database_warning_component,
+    source: database_warning_source,
+  },
+  delete_table: {
+    component: delete_table_component,
+    source: delete_table_source,
   },
   disconnected_plug: {
     component: disconnected_plug_component,

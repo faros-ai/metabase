@@ -52,6 +52,7 @@ export type Insight = {
 export type DashboardSummary = {
   insights?: Insight[];
   text?: string;
+  error?: string;
 };
 
 export interface DashboardState {
