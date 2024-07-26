@@ -39,10 +39,17 @@ interface DashboardSummaryErrorProps {
   postMessage: () => void;
 }
 
+interface CopyToClipboardProps {
+  text: string;
+}
+
 const LOADING = "Loading dashboard ...";
 const FAILED =
   "We encountered an error while running the analysis. Please try again later.";
 const RUNNING = "Analyzing dashboad ... Please wait, this may take a moment.";
+const NO_CHARTS = "NO_CHARTS";
+const NO_QUERY_RESULTS_FOR_ALL_CHARTS = "NO_QUERY_RESULTS_FOR_ALL_CHARTS";
+const NO_QUERY_RESULTS_FOR_SOME_CHARTS = "NO_QUERY_RESULTS_FOR_SOME_CHARTS";
 
 function isDashboardLoaded(
   dashboard: Dashboard,
@@ -96,7 +103,11 @@ function getMessageHandler(
       const { summary, error } = event.data.lighthouse.payload;
       if (error) {
         setFailed(true);
-      } else if (hasInsights(summary?.insights) || summary?.text) {
+      } else if (
+        hasInsights(summary?.insights) ||
+        summary?.text ||
+        summary?.error
+      ) {
         dispatch(setDashboardSummary({ tabId: selectedTabId ?? -1, summary }));
       } else {
         setFailed(true);
@@ -148,10 +159,156 @@ function Disclaimer() {
   );
 }
 
-function DashboardSummaryContents({ insights, text }: DashboardSummary) {
+function SomeChartsUnavailable() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        padding: "0px",
+        borderRadius: "6px",
+        flex: "none",
+        order: 1,
+        alignSelf: "stretch",
+        flexGrow: 0,
+      }}
+    >
+      <div
+        style={{
+          background: "#023D67",
+          width: "6px",
+          borderRadius: "6px 0px 0px 6px",
+          flex: "none",
+          order: 0,
+          alignSelf: "stretch",
+          flexGrow: 0,
+        }}
+      ></div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          padding: "0px",
+          borderRadius: "8px",
+          flex: "none",
+          order: 1,
+          alignSelf: "stretch",
+          flexGrow: 0,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            padding: "5px",
+            gap: "12px",
+            background: "#E2F7FF",
+            flex: "none",
+            order: 0,
+            alignSelf: "stretch",
+            flexGrow: 0,
+          }}
+        >
+          <Icon
+            name="info_filled"
+            fill="#023D67"
+            style={{
+              width: "24px",
+              height: "24px",
+              flex: "None",
+              order: 0,
+              flexGrow: 0,
+            }}
+          />
+          <div
+            style={{
+              width: "270px",
+              fontFamily: "Lato",
+              fontStyle: "normal",
+              fontWeight: 400,
+              lineHeight: "150%",
+              color: "#072E45",
+              flex: "none",
+              order: 1,
+              flexGrow: 1,
+            }}
+          >
+            Some charts have no data or contain errors in their query. Only
+            charts with valid data are summarized.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function dashboardSummaryToString(
+  insights: Insight[] | undefined,
+  text: string | undefined,
+) {
+  return (
+    insights
+      ?.map((insight, _index) => {
+        return [
+          insight.title,
+          insight.description,
+          `Source: ${insight.sourceCharts?.join(", ")}`,
+        ].join("\n");
+      })
+      .join("\n\n") ?? text
+  );
+}
+
+function CopyToClipboard({ text }: CopyToClipboardProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "flex-end",
+        padding: "12px 12px",
+        gap: "12px",
+        background: "#F2F3F7",
+        border: "1px solid #DADFF1",
+        flex: "none",
+        order: 2,
+        alignSelf: "stretch",
+        flexGrow: 0,
+      }}
+    >
+      <Button
+        leftIcon={<Icon name="copy" width={20} height={20} />}
+        radius="md"
+        size="md"
+        onClick={() => {
+          if (text.trim() !== "") {
+            const messageData = {
+              lighthouse: {
+                type: "CopyText",
+                payload: { text },
+              },
+            };
+            window.parent.postMessage(messageData, "*");
+          }
+        }}
+        style={{
+          order: 2,
+        }}
+      >
+        Copy All
+      </Button>
+    </div>
+  );
+}
+
+function DashboardSummaryContents({ insights, text, error }: DashboardSummary) {
   const insightsAvailable = hasInsights(insights);
   return (
     <div style={{ padding: "8px 20px", background: "#FFFFFF" }}>
+      {error === NO_QUERY_RESULTS_FOR_SOME_CHARTS && <SomeChartsUnavailable />}
       {insightsAvailable && (
         <ol style={{ listStyleType: "decimal", paddingLeft: "10px" }}>
           {insights?.map((insight, insightIndex) => {
@@ -164,12 +321,12 @@ function DashboardSummaryContents({ insights, text }: DashboardSummary) {
                 <InsightDescription>{insight.description}</InsightDescription>
                 {insight.sourceCharts && insight.sourceCharts.length > 0 && (
                   <InsightReferences>
-                    Sources:
+                    Source:
                     {insight.sourceCharts.flatMap((title, chartIndex) => [
                       <ChartTitle
                         key={`dashboard-summary-insight-${insightIndex}-source-chart-${chartIndex}`}
                       >
-                        &ldquo;{title}&rdquo;
+                        {title}
                       </ChartTitle>,
                       chartIndex < (insight.sourceCharts?.length ?? 0) - 1
                         ? ", "
@@ -536,6 +693,227 @@ function DashboardSummaryError({
   );
 }
 
+function AllChartsUnavailable() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: "12px",
+        width: "100%",
+        height: "76vh",
+        overflowY: "scroll",
+        background: "#F2F3F7",
+        flex: "none",
+        order: 1,
+        alignSelf: "stretch",
+        flexGrow: 1,
+      }}
+    >
+      <div
+        style={{
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "24px",
+          gap: "24px",
+          width: "100%",
+          height: "100%",
+          background: "#FFFFFF",
+          border: "1px solid #E2E8F0",
+          borderRadius: "12px",
+          flex: "none",
+          order: 0,
+          alignSelf: "stretch",
+          flexGrow: 1,
+        }}
+      >
+        <Icon
+          name="database_warning"
+          style={{
+            width: "72px",
+            height: "72px",
+            flex: "None",
+            order: 0,
+            flexGrow: 0,
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "0px",
+            gap: "8px",
+            width: "fit-content",
+            height: "fit-content",
+            flex: "none",
+            order: 1,
+            alignSelf: "stretch",
+            flexGrow: 0,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "Lato",
+              fontStyle: "normal",
+              fontWeight: 600,
+              fontSize: "18px",
+              lineHeight: "150%",
+              display: "flex",
+              alignItems: "center",
+              textAlign: "center",
+              color: "#072E45",
+              flex: "none",
+              order: 0,
+              alignSelf: "stretch",
+              flexGrow: 0,
+              justifyContent: "center",
+            }}
+          >
+            Summary Unavailable
+          </div>
+          <div
+            style={{
+              fontFamily: "Lato",
+              fontStyle: "normal",
+              fontWeight: 400,
+              fontSize: "14px",
+              lineHeight: "150%",
+              display: "flex",
+              alignItems: "center",
+              textAlign: "center",
+              color: "#516B7B",
+              flex: "none",
+              order: 1,
+              alignSelf: "stretch",
+              flexGrow: 0,
+              justifyContent: "center",
+            }}
+          >
+            All charts have no data or contain errors in their query
+            configuration. Please review and correct each chart’s setup and data
+            sources.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NoCharts() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: "12px",
+        width: "100%",
+        height: "76vh",
+        overflowY: "scroll",
+        background: "#F2F3F7",
+        flex: "none",
+        order: 1,
+        alignSelf: "stretch",
+        flexGrow: 1,
+      }}
+    >
+      <div
+        style={{
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "24px",
+          gap: "24px",
+          width: "100%",
+          height: "100%",
+          background: "#FFFFFF",
+          border: "1px solid #E2E8F0",
+          borderRadius: "12px",
+          flex: "none",
+          order: 0,
+          alignSelf: "stretch",
+          flexGrow: 1,
+        }}
+      >
+        <Icon
+          name="delete_table"
+          style={{
+            width: "72px",
+            height: "72px",
+            flex: "None",
+            order: 0,
+            flexGrow: 0,
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            padding: "0px",
+            gap: "8px",
+            width: "fit-content",
+            height: "fit-content",
+            flex: "none",
+            order: 1,
+            alignSelf: "stretch",
+            flexGrow: 0,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "Lato",
+              fontStyle: "normal",
+              fontWeight: 600,
+              fontSize: "18px",
+              lineHeight: "150%",
+              display: "flex",
+              alignItems: "center",
+              textAlign: "center",
+              color: "#072E45",
+              flex: "none",
+              order: 0,
+              alignSelf: "stretch",
+              flexGrow: 0,
+              justifyContent: "center",
+            }}
+          >
+            Add Charts to Summarize
+          </div>
+          <div
+            style={{
+              fontFamily: "Lato",
+              fontStyle: "normal",
+              fontWeight: 400,
+              fontSize: "14px",
+              lineHeight: "150%",
+              display: "flex",
+              alignItems: "center",
+              textAlign: "center",
+              color: "#516B7B",
+              flex: "none",
+              order: 1,
+              alignSelf: "stretch",
+              flexGrow: 0,
+              justifyContent: "center",
+            }}
+          >
+            This tool summarizes charts in your dashboard. Please add charts
+            before using this feature.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getStatus(
   loaded: boolean,
   failed: boolean,
@@ -550,7 +928,12 @@ function getStatus(
   if (!dashboardSummary) {
     return [false, RUNNING];
   }
-
+  if (
+    dashboardSummary.error === NO_QUERY_RESULTS_FOR_ALL_CHARTS ||
+    dashboardSummary.error === NO_CHARTS
+  ) {
+    return [false, dashboardSummary.error];
+  }
   return [true];
 }
 
@@ -623,6 +1006,10 @@ export function DashboardLighthouseAISidebar({
   }, [messageHandler]);
 
   const [isReady, statusMessage] = getStatus(loaded, failed, dashboardSummary);
+  const summaryText = dashboardSummaryToString(
+    dashboardSummary?.insights,
+    dashboardSummary?.text,
+  );
 
   return (
     <DashboardInfoSidebarRoot
@@ -634,12 +1021,22 @@ export function DashboardLighthouseAISidebar({
     >
       <DashboardSummaryHeader />
       {isReady ? (
-        <DashboardSummaryContents
-          insights={dashboardSummary.insights}
-          text={dashboardSummary.text}
-        />
+        <>
+          <DashboardSummaryContents
+            insights={dashboardSummary.insights}
+            text={dashboardSummary.text}
+            error={dashboardSummary.error}
+          />
+          {summaryText && summaryText?.trim() !== "" && (
+            <CopyToClipboard text={summaryText} />
+          )}
+        </>
       ) : statusMessage === LOADING || statusMessage === RUNNING ? (
         <DashboardSummaryLoading />
+      ) : statusMessage === NO_CHARTS ? (
+        <NoCharts />
+      ) : statusMessage === NO_QUERY_RESULTS_FOR_ALL_CHARTS ? (
+        <AllChartsUnavailable />
       ) : (
         <DashboardSummaryError
           setFailed={setFailed}
