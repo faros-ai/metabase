@@ -28,6 +28,7 @@ import type { AppErrorDescriptor, State } from "metabase-types/store";
 
 import { AppContainer, AppContent, AppContentContainer } from "./App.styled";
 import ErrorBoundary from "./ErrorBoundary";
+import { useSelector } from "./lib/redux";
 
 const getErrorComponent = ({ status, data, context }: AppErrorDescriptor) => {
   if (status === 403 || data?.error_code === "unauthorized") {
@@ -89,6 +90,10 @@ function App({
 }: AppProps) {
   const [viewportElement, setViewportElement] = useState<HTMLElement | null>();
 
+  const isDashboardCreationEnabled = useSelector(
+    state => state.embed.options.enable_dashboard_creation,
+  );
+
   useEffect(() => {
     initializeIframeResizer();
   }, []);
@@ -98,7 +103,7 @@ function App({
       <ScrollToTop>
         <AppContainer className="spread">
           <AppBanner location={location} />
-          {isAppBarVisible && <AppBar />}
+          {isAppBarVisible && isDashboardCreationEnabled && <AppBar />}
           <AppContentContainer isAdminApp={isAdminApp}>
             {isNavBarEnabled && <Navbar />}
             <AppContent ref={setViewportElement}>

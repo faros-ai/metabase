@@ -61,6 +61,7 @@ const mapStateToProps = (state, props) => {
       getSetting(state, "custom-homepage") &&
       getSetting(state, "custom-homepage-dashboard") === props.dashboard?.id,
     enableDashboardSummarizer: state.embed.options.enable_dashboard_summarizer,
+    isDashboardCreationEnabled: state.embed.options.enable_dashboard_creation,
   };
 };
 
@@ -156,6 +157,7 @@ class DashboardHeaderContainer extends Component {
     addParameter: PropTypes.func,
     isHomepageDashboard: PropTypes.bool,
     enableDashboardSummarizer: PropTypes.bool,
+    isDashboardCreationEnabled: PropTypes.bool,
   };
 
   handleEdit(dashboard) {
@@ -298,6 +300,7 @@ class DashboardHeaderContainer extends Component {
       databases,
       collection,
       enableDashboardSummarizer,
+      isDashboardCreationEnabled,
     } = this.props;
 
     const canEdit = dashboard.can_write;
@@ -453,12 +456,14 @@ class DashboardHeaderContainer extends Component {
         event: `Dashboard;Fullscreen Mode;${!isFullscreen}`,
       });
 
-      extraButtons.push({
-        title: t`Duplicate`,
-        icon: "clone",
-        link: `${location.pathname}/copy`,
-        event: "Dashboard;Copy",
-      });
+      if (isDashboardCreationEnabled) {
+        extraButtons.push({
+          title: t`Duplicate`,
+          icon: "clone",
+          link: `${location.pathname}/copy`,
+          event: "Dashboard;Copy",
+        });
+      }
 
       extraButtons.push({
         title:

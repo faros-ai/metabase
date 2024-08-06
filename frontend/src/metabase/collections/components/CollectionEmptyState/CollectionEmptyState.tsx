@@ -3,6 +3,7 @@ import { t } from "ttag";
 import { ANALYTICS_CONTEXT } from "metabase/collections/constants";
 import NewItemMenu from "metabase/containers/NewItemMenu";
 import Button from "metabase/core/components/Button";
+import { useSelector } from "metabase/lib/redux";
 import { Text } from "metabase/ui";
 import type { Collection } from "metabase-types/api";
 
@@ -20,7 +21,10 @@ export interface CollectionEmptyStateProps {
 const CollectionEmptyState = ({
   collection,
 }: CollectionEmptyStateProps): JSX.Element => {
-  const canWrite = !!collection?.can_write;
+  const isDashboardCreationEnabled = useSelector(
+    state => state.embed.options.enable_dashboard_creation,
+  );
+  const canWrite = !!collection?.can_write && isDashboardCreationEnabled;
 
   return (
     <EmptyStateRoot data-testid="collection-empty-state">
