@@ -59,7 +59,9 @@ const options = handleActions(
       ...payload,
     }),
   },
-  {},
+  {
+    ...DEFAULT_EMBED_OPTIONS,
+  },
 );
 
 // eslint-disable-next-line import/no-default-export -- deprecated usage

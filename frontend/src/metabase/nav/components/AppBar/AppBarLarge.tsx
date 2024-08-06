@@ -1,3 +1,4 @@
+import { useSelector } from "metabase/lib/redux";
 import { SearchBar } from "metabase/nav/components/search/SearchBar";
 import type { CollectionId, User } from "metabase-types/api";
 
@@ -46,6 +47,10 @@ const AppBarLarge = ({
 }: AppBarLargeProps): JSX.Element => {
   const isNavBarVisible = isNavBarOpen && isNavBarEnabled;
 
+  const isDashboardCreationEnabled = useSelector(
+    state => state.embed.options.enable_dashboard_creation,
+  );
+
   return (
     <AppBarRoot isNavBarOpen={isNavBarVisible}>
       <AppBarLeftContainer
@@ -71,7 +76,9 @@ const AppBarLarge = ({
       {(isSearchVisible || isNewButtonVisible || isProfileLinkVisible) && (
         <AppBarRightContainer>
           {isSearchVisible && <SearchBar />}
-          {isNewButtonVisible && <NewItemButton collectionId={collectionId} />}
+          {isNewButtonVisible && isDashboardCreationEnabled && (
+            <NewItemButton collectionId={collectionId} />
+          )}
           {isProfileLinkVisible && (
             <AppBarProfileLinkContainer>
               <ProfileLink user={currentUser} onLogout={onLogout} />
