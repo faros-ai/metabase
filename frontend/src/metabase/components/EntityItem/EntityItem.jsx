@@ -15,6 +15,7 @@ import CheckBox from "metabase/core/components/CheckBox";
 import { Ellipsified } from "metabase/core/components/Ellipsified";
 import { Icon } from "metabase/core/components/Icon";
 import Swapper from "metabase/core/components/Swapper";
+import { useSelector } from "metabase/lib/redux";
 import * as Urls from "metabase/lib/urls";
 
 import {
@@ -109,6 +110,9 @@ function EntityItemMenu({
   const isXrayShown = isModel && isXrayEnabled;
   const isMetabotShown = isModel && canUseMetabot;
   const isDashboard = isItemDashboard(item);
+  const isDashboardCreationEnabled = useSelector(
+    state => state.embed.options.enable_dashboard_creation,
+  );
 
   const actions = useMemo(
     () =>
@@ -149,12 +153,13 @@ function EntityItemMenu({
           action: onMove,
           event: `${analyticsContext};Entity Item;Move Item;${item.model}`,
         },
-        onCopy && {
-          title: t`Duplicate`,
-          icon: "clone",
-          action: onCopy,
-          event: `${analyticsContext};Entity Item;Copy Item;${item.model}`,
-        },
+        onCopy &&
+          isDashboardCreationEnabled && {
+            title: t`Duplicate`,
+            icon: "clone",
+            action: onCopy,
+            event: `${analyticsContext};Entity Item;Copy Item;${item.model}`,
+          },
         isDashboard &&
           onCopyToAnotherWorkspace && {
             title: t`Copy to another workspace`,
@@ -176,23 +181,24 @@ function EntityItemMenu({
         },
       ].filter(action => action),
     [
-      item.id,
-      item.model,
+      onPin,
       isPinned,
-      isXrayShown,
+      analyticsContext,
+      item.model,
+      item.id,
       isMetabotShown,
+      isXrayShown,
+      onTogglePreview,
       isPreviewed,
       isParameterized,
-      isDashboard,
-      isBookmarked,
-      onPin,
       onMove,
       onCopy,
+      isDashboardCreationEnabled,
+      isDashboard,
       onCopyToAnotherWorkspace,
       onArchive,
-      onTogglePreview,
       onToggleBookmark,
-      analyticsContext,
+      isBookmarked,
     ],
   );
   if (actions.length === 0) {

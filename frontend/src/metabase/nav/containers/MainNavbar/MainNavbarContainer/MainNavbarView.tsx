@@ -10,6 +10,7 @@ import {
   PERSONAL_COLLECTIONS,
 } from "metabase/entities/collections";
 import { isSmallScreen } from "metabase/lib/dom";
+import { useSelector } from "metabase/lib/redux";
 import * as Urls from "metabase/lib/urls";
 import { WhatsNewNotification } from "metabase/nav/components/WhatsNewNotification";
 import type { Bookmark, Collection, User } from "metabase-types/api";
@@ -80,6 +81,10 @@ function MainNavbarView({
     "non-entity": nonEntityItem,
   } = _.indexBy(selectedItems, item => item.type);
 
+  const isDashboardCreationEnabled = useSelector(
+    state => state.embed.options.enable_dashboard_creation,
+  );
+
   const onItemSelect = useCallback(() => {
     if (isSmallScreen()) {
       handleCloseNavbar();
@@ -117,6 +122,7 @@ function MainNavbarView({
           <CollectionSectionHeading
             currentUser={currentUser}
             handleCreateNewCollection={handleCreateNewCollection}
+            dashboardCreationEnabled={!!isDashboardCreationEnabled}
           />
           <Tree
             data={collections}
@@ -167,25 +173,29 @@ function MainNavbarView({
 
 interface CollectionSectionHeadingProps {
   currentUser: User;
+  dashboardCreationEnabled: boolean;
   handleCreateNewCollection: () => void;
 }
 
 function CollectionSectionHeading({
   currentUser,
+  dashboardCreationEnabled,
   handleCreateNewCollection,
 }: CollectionSectionHeadingProps) {
   const renderMenu = useCallback(
     ({ closePopover }) => (
       <CollectionMenuList>
-        <SidebarLink
-          icon="add"
-          onClick={() => {
-            closePopover();
-            handleCreateNewCollection();
-          }}
-        >
-          {t`New collection`}
-        </SidebarLink>
+        {dashboardCreationEnabled && (
+          <SidebarLink
+            icon="add"
+            onClick={() => {
+              closePopover();
+              handleCreateNewCollection();
+            }}
+          >
+            {t`New collection`}
+          </SidebarLink>
+        )}
         {currentUser.is_superuser && (
           <SidebarLink
             icon={
@@ -208,7 +218,7 @@ function CollectionSectionHeading({
         </SidebarLink>
       </CollectionMenuList>
     ),
-    [currentUser, handleCreateNewCollection],
+    [currentUser, handleCreateNewCollection, dashboardCreationEnabled],
   );
 
   return (

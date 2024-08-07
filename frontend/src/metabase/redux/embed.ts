@@ -15,6 +15,7 @@ export const DEFAULT_EMBED_OPTIONS = {
   additional_info: true,
   action_buttons: true,
   enable_chart_explainer: false,
+  enable_dashboard_creation: false,
 } as const;
 
 export const SET_OPTIONS = "metabase/embed/SET_OPTIONS";
@@ -31,6 +32,9 @@ export const toggleDashboardSummarizer = createAction(
 export const TOGGLE_COPY_TO_WORKSPACE =
   "metabase/embed/TOGGLE_COPY_TO_WORKSPACE";
 export const toggleCopyToWorkspace = createAction(TOGGLE_COPY_TO_WORKSPACE);
+export const TOGGLE_DASHBOARD_CREATION =
+  "metabase/embed/TOGGLE_DASHBOARD_CREATION";
+export const toggleDashboardCreation = createAction(TOGGLE_DASHBOARD_CREATION);
 
 const options = handleActions(
   {
@@ -50,8 +54,14 @@ const options = handleActions(
       ...state,
       ...payload,
     }),
+    [TOGGLE_DASHBOARD_CREATION]: (state, { payload }) => ({
+      ...state,
+      ...payload,
+    }),
   },
-  {},
+  {
+    ...DEFAULT_EMBED_OPTIONS,
+  },
 );
 
 // eslint-disable-next-line import/no-default-export -- deprecated usage
