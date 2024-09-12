@@ -143,7 +143,10 @@
          (when (not (str/blank? additional-files))
            (let [attach-statements (->> (str/split additional-files #",")
                                         (map str/trim)
-                                        (map #(format "ATTACH IF NOT EXISTS '%s' (READ_ONLY);" %))
+                                        (map #(let [[file alias] (str/split % #"::" 2)]
+                                                (if alias
+                                                  (format "ATTACH IF NOT EXISTS '%s' AS %s (READ_ONLY);" file alias)
+                                                  (format "ATTACH IF NOT EXISTS '%s' (READ_ONLY);" file))))
                                         (str/join " "))]
              (with-open [stmt (.createStatement conn)]
                (.execute stmt attach-statements))))))
