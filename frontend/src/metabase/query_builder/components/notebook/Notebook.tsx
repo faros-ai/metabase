@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { t } from "ttag";
 import _ from "underscore";
 
@@ -47,6 +48,20 @@ const Notebook = ({ className, updateQuestion, ...props }: NotebookProps) => {
     runQuestionQuery,
     setQueryBuilderMode,
   } = props;
+
+  useEffect(() => {
+    window.postMessage(
+      {
+        getQuery: {
+          type: "GetQuery",
+          payload: {
+            query: question._card.dataset_query,
+          },
+        },
+      },
+      "*",
+    );
+  }, [question._card.dataset_query]);
 
   const dispatch = useDispatch();
 
