@@ -50,7 +50,7 @@ const Notebook = ({ className, updateQuestion, ...props }: NotebookProps) => {
   } = props;
 
   useEffect(() => {
-    window.postMessage(
+    window.parent.postMessage(
       {
         getQuery: {
           type: "GetQuery",
