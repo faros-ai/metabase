@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { t } from "ttag";
 import _ from "underscore";
 
@@ -49,13 +49,16 @@ const Notebook = ({ className, updateQuestion, ...props }: NotebookProps) => {
     setQueryBuilderMode,
   } = props;
 
+  const dispatch = useDispatch();
+
+  // Send mbql_query to parent window every time it changes
   useEffect(() => {
     window.parent.postMessage(
       {
-        getQuery: {
+        datasetQuery: {
           type: "GetQuery",
           payload: {
-            query: question._card.dataset_query,
+            dataset_query: question._card.dataset_query,
           },
         },
       },
@@ -63,7 +66,27 @@ const Notebook = ({ className, updateQuestion, ...props }: NotebookProps) => {
     );
   }, [question._card.dataset_query]);
 
-  const dispatch = useDispatch();
+  const listener = useCallback(
+    (event: MessageEvent<{ datasetQuery: Record<any, any> }>) => {
+      if (
+        event.data.datasetQuery &&
+        event.data.datasetQuery.type === "SetQuery"
+      ) {
+        const { dataset_query } = event.data.datasetQuery.payload;
+        const newQuestion = question.setDatasetQuery(dataset_query);
+        updateQuestion(newQuestion);
+      }
+    },
+    [question, updateQuestion],
+  );
+
+  useEffect(() => {
+    window.addEventListener("message", listener);
+
+    return () => {
+      window.removeEventListener("message", listener);
+    };
+  }, [listener]);
 
   async function cleanupQuestion() {
     // Converting a query to MLv2 and back performs a clean-up
