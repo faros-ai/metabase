@@ -1,3 +1,4 @@
+import { useCallback, useEffect } from "react";
 import { t } from "ttag";
 import _ from "underscore";
 
@@ -49,6 +50,44 @@ const Notebook = ({ className, updateQuestion, ...props }: NotebookProps) => {
   } = props;
 
   const dispatch = useDispatch();
+
+  // Send mbql_query to parent window every time it changes
+  useEffect(() => {
+    window.parent.postMessage(
+      {
+        lighthouse: {
+          type: "GetNotebookQuery",
+          payload: {
+            datasetQuery: question.datasetQuery(),
+          },
+        },
+      },
+      "*",
+    );
+  }, [question, question._card.dataset_query]);
+
+  const listener = useCallback(
+    async (event: MessageEvent<{ lighthouse: Record<any, any> }>) => {
+      if (
+        event &&
+        event.source === window.parent &&
+        event.data?.lighthouse?.type === "SetNotebookQuery"
+      ) {
+        const { dataset_query } = event.data.lighthouse.payload;
+        const newQuestion = question.setDatasetQuery(dataset_query);
+        await updateQuestion(newQuestion);
+      }
+    },
+    [question, updateQuestion],
+  );
+
+  useEffect(() => {
+    window.addEventListener("message", listener);
+
+    return () => {
+      window.removeEventListener("message", listener);
+    };
+  }, [listener]);
 
   async function cleanupQuestion() {
     // Converting a query to MLv2 and back performs a clean-up
