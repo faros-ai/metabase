@@ -55,26 +55,27 @@ const Notebook = ({ className, updateQuestion, ...props }: NotebookProps) => {
   useEffect(() => {
     window.parent.postMessage(
       {
-        datasetQuery: {
-          type: "GetQuery",
+        lighthouse: {
+          type: "GetNotebookQuery",
           payload: {
-            dataset_query: question._card.dataset_query,
+            datasetQuery: question.datasetQuery(),
           },
         },
       },
       "*",
     );
-  }, [question._card.dataset_query]);
+  }, [question, question._card.dataset_query]);
 
   const listener = useCallback(
-    (event: MessageEvent<{ datasetQuery: Record<any, any> }>) => {
+    async (event: MessageEvent<{ lighthouse: Record<any, any> }>) => {
       if (
-        event.data.datasetQuery &&
-        event.data.datasetQuery.type === "SetQuery"
+        event &&
+        event.source === window.parent &&
+        event.data?.lighthouse?.type === "SetNotebookQuery"
       ) {
-        const { dataset_query } = event.data.datasetQuery.payload;
+        const { dataset_query } = event.data.lighthouse.payload;
         const newQuestion = question.setDatasetQuery(dataset_query);
-        updateQuestion(newQuestion);
+        await updateQuestion(newQuestion);
       }
     },
     [question, updateQuestion],
