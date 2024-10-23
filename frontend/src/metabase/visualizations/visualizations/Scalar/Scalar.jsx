@@ -176,6 +176,7 @@ export class Scalar extends Component {
       fontFamily,
       dashcard,
       rawSeries,
+      parameterValues,
     } = this.props;
 
     const columnIndex = this._getColumnIndex(cols, settings);
@@ -221,7 +222,7 @@ export class Scalar extends Component {
 
     const chartExtras =
       dashcard && rawSeries && rawSeries[0]["data"]
-        ? getChartExtras(dashcard, rawSeries, settings)
+        ? getChartExtras(dashcard, rawSeries, settings, parameterValues)
         : undefined;
 
     return (

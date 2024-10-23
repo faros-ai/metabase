@@ -5,6 +5,8 @@ import type {
   Card,
   DashboardCard,
   DatasetData,
+  ParameterId,
+  ParameterValueOrArray,
   RawSeries,
   Series,
   TransformedSeries,
@@ -47,6 +49,7 @@ export interface VisualizationProps {
   isSettings: boolean;
   hovered?: HoveredObject;
   className?: string;
+  parameterValues: Record<ParameterId, ParameterValueOrArray>;
 
   gridSize?: VisualizationGridSize;
   width: number;

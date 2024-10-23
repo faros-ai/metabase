@@ -264,6 +264,7 @@ export default class LineAreaBarChart extends Component {
       width,
       dashcard,
       rawSeries,
+      parameterValues,
     } = this.props;
 
     // Note (EmmadUsmani): Stacked charts should be reversed so series are stacked
@@ -284,7 +285,7 @@ export default class LineAreaBarChart extends Component {
 
     const chartExtras =
       dashcard && rawSeries && rawSeries[0]["data"]
-        ? getChartExtras(dashcard, rawSeries, settings)
+        ? getChartExtras(dashcard, rawSeries, settings, parameterValues)
         : undefined;
 
     return (

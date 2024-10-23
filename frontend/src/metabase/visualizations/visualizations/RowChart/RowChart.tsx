@@ -103,6 +103,7 @@ const RowChartVisualization = ({
   series: multipleSeries,
   fontFamily,
   width,
+  parameterValues,
 }: VisualizationProps) => {
   const formatColumnValue = useMemo(() => {
     return getColumnValueFormatter();
@@ -260,7 +261,7 @@ const RowChartVisualization = ({
   const hasLegend = series.length > 1 || hasBreakout;
   const chartExtras =
     dashcard && rawMultipleSeries && rawMultipleSeries[0]["data"]
-      ? getChartExtras(dashcard, rawMultipleSeries, settings)
+      ? getChartExtras(dashcard, rawMultipleSeries, settings, parameterValues)
       : undefined;
 
   return (

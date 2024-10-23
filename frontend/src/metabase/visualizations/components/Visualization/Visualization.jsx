@@ -343,6 +343,7 @@ class Visualization extends PureComponent {
       onOpenChartSettings,
       onUpdateVisualizationSettings,
       rawSeries,
+      parameterValues,
     } = this.props;
     const { visualization } = this.state;
     const small = width < 330;
@@ -464,7 +465,7 @@ class Visualization extends PureComponent {
 
     const chartExtras =
       dashcard && rawSeries && rawSeries[0]["data"]
-        ? getChartExtras(dashcard, rawSeries, settings)
+        ? getChartExtras(dashcard, rawSeries, settings, parameterValues)
         : undefined;
 
     return (

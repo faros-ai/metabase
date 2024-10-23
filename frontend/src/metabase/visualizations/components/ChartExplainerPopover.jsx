@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { isEqual } from "underscore";
 
 import { DEFAULT_Z_INDEX } from "metabase/components/Popover/constants";
 import { Icon } from "metabase/core/components/Icon";
@@ -30,23 +31,26 @@ const ChartExplainerConfig = {
   },
 };
 
-function getPostMessage(explanation, setError, type, title, chartExtras) {
-  return () => {
-    if (window.parent !== window && explanation === defaultExplanation) {
-      const messageData = {
-        lighthouse: {
-          type: "ChartExplainer",
-          payload: { ...chartExtras, title, type },
+function postMessage(explanation, setError, type, title, chartExtras) {
+  if (window.parent !== window && explanation === defaultExplanation) {
+    const messageData = {
+      lighthouse: {
+        type: "ChartExplainer",
+        payload: {
+          ...chartExtras,
+          title,
+          type,
         },
-      };
-      setError(false);
-      window.parent.postMessage(messageData, "*");
-    }
-  };
+      },
+    };
+    setError(false);
+    window.parent.postMessage(messageData, "*");
+  }
 }
 
 function getMessageHandler(setExplanation, setError, type, chartExtras) {
   return event => {
+    const parameterValues = chartExtras.parameterValues ?? {};
     if (
       event &&
       event.source === window.parent &&
@@ -59,8 +63,14 @@ function getMessageHandler(setExplanation, setError, type, chartExtras) {
         explanation: chartExplanation,
         error,
       } = event.data.lighthouse.payload;
+      const eventParameterValues =
+        event.lighthouse.payload.paramaterValues ?? {};
 
-      if (chartExtras?.dashboard_id === dashboardId && chartExtras?.id === id) {
+      if (
+        chartExtras?.dashboard_id === dashboardId &&
+        chartExtras?.id === id &&
+        isEqual(eventParameterValues, parameterValues)
+      ) {
         if (
           !error &&
           !!chartExplanation &&
@@ -302,7 +312,7 @@ const Loading = () => (
   </div>
 );
 
-const Error = ({ postMessage }) => (
+const Error = ({ type, title, chartExtras, explanation, setError }) => (
   <div
     style={{
       display: "flex",
@@ -397,7 +407,9 @@ const Error = ({ postMessage }) => (
       leftIcon={<Icon name="arrow_repeat" width={20} height={20} />}
       radius="md"
       size="md"
-      onClick={() => postMessage()}
+      onClick={() =>
+        postMessage(explanation, setError, type, title, chartExtras)
+      }
       style={{
         order: 2,
       }}
@@ -408,7 +420,11 @@ const Error = ({ postMessage }) => (
 );
 
 Error.propTypes = {
-  postMessage: PropTypes.func.isRequired,
+  type: PropTypes.oneOf(Object.values(ChartExplainerType)).isRequired,
+  title: PropTypes.string.isRequired,
+  chartExtras: PropTypes.object.isRequired,
+  explanation: PropTypes.string.isRequired,
+  setError: PropTypes.func.isRequired,
 };
 
 const Explanation = ({ explanation }) => (
@@ -463,10 +479,12 @@ const isChartLoaded = ({ dashcard, rawSeries }) => {
 
 const ChartExplainer = ({
   type,
+  title,
+  chartExtras,
   explanation,
   error,
+  setError,
   setOpened,
-  postMessage,
 }) => (
   <div
     style={{
@@ -487,7 +505,13 @@ const ChartExplainer = ({
   >
     <Header type={type} setOpened={setOpened} />
     {error ? (
-      <Error postMessage={postMessage} />
+      <Error
+        type={type}
+        title={title}
+        chartExtras={chartExtras}
+        explanation={explanation}
+        setError={setError}
+      />
     ) : explanation === defaultExplanation ? (
       <Loading />
     ) : (
@@ -498,10 +522,12 @@ const ChartExplainer = ({
 
 ChartExplainer.propTypes = {
   type: PropTypes.oneOf(Object.values(ChartExplainerType)).isRequired,
+  title: PropTypes.string.isRequired,
+  chartExtras: PropTypes.object.isRequired,
   explanation: PropTypes.string.isRequired,
   error: PropTypes.bool.isRequired,
+  setError: PropTypes.func.isRequired,
   setOpened: PropTypes.func.isRequired,
-  postMessage: PropTypes.func.isRequired,
 };
 
 export const ChartExplainerPopover = ({ type, title, chartExtras }) => {
@@ -511,16 +537,20 @@ export const ChartExplainerPopover = ({ type, title, chartExtras }) => {
   const [explanation, setExplanation] = useState(defaultExplanation);
   const [error, setError] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const postMessage = useCallback(
-    getPostMessage(explanation, setError, type, title, chartExtras),
-    [explanation, setError, type, title, chartExtras],
+  const parameterValues = useMemo(
+    () => chartExtras.paramaterValues ?? {},
+    [chartExtras],
   );
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMessage = useCallback(
     getMessageHandler(setExplanation, setError, type, chartExtras),
     [setExplanation, setError, type, chartExtras],
+  );
+
+  useEffect(
+    () => setExplanation(defaultExplanation),
+    [parameterValues, setExplanation],
   );
 
   useEffect(() => {
@@ -533,9 +563,9 @@ export const ChartExplainerPopover = ({ type, title, chartExtras }) => {
 
   useEffect(() => {
     if (popoverOpened && isChartLoaded(chartExtras)) {
-      postMessage();
+      postMessage(explanation, setError, type, title, chartExtras);
     }
-  }, [popoverOpened, postMessage, chartExtras]);
+  }, [popoverOpened, chartExtras, explanation, setError, type, title]);
 
   return (
     <Popover

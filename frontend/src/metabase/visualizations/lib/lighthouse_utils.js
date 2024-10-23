@@ -50,7 +50,7 @@ function getVisualizationSettings(settings) {
   return viz;
 }
 
-export function getChartExtras(dashcard, rawSeries, settings) {
+export function getChartExtras(dashcard, rawSeries, settings, parameterValues) {
   const { id, card, dashboard_id, series } = dashcard;
   const { display, updated_at } = card;
   const names = [card.name];
@@ -75,5 +75,6 @@ export function getChartExtras(dashcard, rawSeries, settings) {
     visualization_settings,
     dashcard,
     rawSeries,
+    parameterValues,
   };
 }
