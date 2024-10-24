@@ -538,7 +538,7 @@ export const ChartExplainerPopover = ({ type, title, chartExtras }) => {
   const [error, setError] = useState(false);
 
   const parameterValues = useMemo(
-    () => chartExtras.paramaterValues ?? {},
+    () => chartExtras?.paramaterValues ?? {},
     [chartExtras],
   );
 
