@@ -64,7 +64,7 @@ function getMessageHandler(setExplanation, setError, type, chartExtras) {
         error,
       } = event.data.lighthouse.payload;
       const eventParameterValues =
-        event.lighthouse.payload.paramaterValues ?? {};
+        event.data?.lighthouse?.payload?.paramaterValues ?? {};
 
       if (
         chartExtras?.dashboard_id === dashboardId &&
